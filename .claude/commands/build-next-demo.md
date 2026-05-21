@@ -6,7 +6,7 @@ When this skill is invoked, follow the workflow below exactly. Do not skip steps
 
 ## ENVIRONMENT
 
-- Python: `/opt/homebrew/bin/python3.13`
+- Python: use `python3` (fall back to `python3.13` if available at `/opt/homebrew/bin/python3.13`)
 - Required packages: `requests pandas numpy pyyaml`
 - Config file: `next_config.json` in the project folder
 - **Never hardcode credentials.** All scripts read from `next_config.json`:
@@ -290,17 +290,25 @@ Rules: each preference starts with `#`, max 300 chars, max 50 preferences per mo
 
 ---
 
-## STEP 1 — ORG SELECTION + CREDENTIAL SETUP (if needed) + GATHER REQUIREMENTS
+## STEP 1 — AUTHENTICATE TO SALESFORCE + DATA CLOUD
 
-**Check for orgs first — use the Read tool.** Before anything else:
+**This is always the first step.** Tell the user:
 
-1. Try to read `next_orgs.json` in the project folder.
-2. If that doesn't exist, try `next_config.json`.
-3. If neither exists, run credential setup (see below).
+> "First, let me check if we can connect to your Salesforce org."
 
-**If `next_orgs.json` exists:**
+Then follow this flow:
 
-Read it. The structure is:
+---
+
+### 1a — Check for credentials file
+
+Use the Read tool to check for credentials in this order:
+1. `next_orgs.json` in the project folder
+2. `next_config.json` in the project folder
+
+**If neither file exists** — go to Step 1c (collect credentials from scratch).
+
+**If `next_orgs.json` exists**, read it. Structure:
 ```json
 {
   "orgs": {
@@ -309,25 +317,71 @@ Read it. The structure is:
   }
 }
 ```
+- **1 org**: use it automatically.
+- **2+ orgs**: present a numbered list and ask the user to choose. Wait for reply before continuing.
 
-- **1 org**: use it automatically. Note the name and mention it in the plan.
-- **2+ orgs**: present a numbered list from the actual file contents and ask the user to choose:
+Store the selected config as `CONFIG` and `ORG_NAME`.
 
-> "Which Salesforce org should I publish this demo to?
+**If only `next_config.json` exists** — use it as-is. Set `ORG_NAME = None`.
+
+---
+
+### 1b — Verify authentication
+
+Once you have a config, run this inline Python to test it:
+
+```python
+import json, requests
+from pathlib import Path
+
+cfg = json.loads(Path("next_config.json").read_text())  # or next_orgs.json equivalent
+
+# Step 1: SF token
+r = requests.post(f"{cfg['sf_login_url']}/services/oauth2/token", data={
+    "grant_type": "refresh_token",
+    "client_id": cfg["client_id"],
+    "client_secret": cfg["client_secret"],
+    "refresh_token": cfg["refresh_token"],
+})
+if not r.ok:
+    print(f"SF_AUTH_FAILED: {r.status_code} {r.text[:200]}")
+else:
+    sf_token    = r.json()["access_token"]
+    sf_instance = r.json()["instance_url"]
+    # Step 2: Data Cloud token
+    r2 = requests.post(f"{sf_instance}/services/a360/token",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data={"grant_type": "urn:salesforce:grant-type:external:cdp",
+              "subject_token": sf_token,
+              "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"})
+    if not r2.ok:
+        print(f"DC_AUTH_FAILED: {r2.status_code} {r2.text[:200]}")
+    else:
+        print(f"AUTH_OK: {sf_instance}")
+```
+
+**If auth succeeds** — tell the user:
+
+> "Connected to [sf_instance]."
+
+Then immediately ask:
+
+> "How would you like to build this demo?
 >
-> 1. First Meridian (Sandbox)
-> 2. Demo Shared Org
-> 3. Acme Bank (Production)
+> 1. **Build from scratch** — I'll generate synthetic data, load it into Data Cloud, and build a complete workspace, semantic model, and dashboard automatically.
+> 2. **Use your existing data** — I'll explore what's already in your org, show you your existing semantic models and data, and help you build new metrics, visualizations, and dashboards on top of it.
 >
-> Reply with the number."
+> Reply with 1 or 2."
 
-Wait for the user's reply before proceeding. Store the selected org name as `ORG_NAME` — it will be embedded in the script as `CONFIG = load_config("ORG_NAME")`.
+Wait for the user's reply before proceeding.
+- If **1**: continue to STEP 2 (gather demo requirements) as normal.
+- If **2**: continue to STEP 2-DISCOVER (org discovery flow — defined below).
 
-**If only `next_config.json` exists (legacy):**
+**If auth fails** — tell the user the credentials are stale or incorrect and go to Step 1c to collect fresh ones.
 
-Use it as-is. Set `ORG_NAME = None`. The script will use `load_config()` without an org name.
+---
 
-**If neither file exists — collect credentials:**
+### 1c — Collect credentials (only if no file exists or auth failed)
 
 > "Before I build your demo, I need your Salesforce and Data Cloud connection details. You'll only need to enter these once."
 
@@ -336,11 +390,11 @@ Ask for:
 - Salesforce login URL (default: `https://login.salesforce.com`)
 - Connected App client ID (consumer key)
 - Connected App client secret (consumer secret)
-- Refresh token (from OAuth authorization)
+- Refresh token (from OAuth authorization — run `next_auth.py` if needed)
 - Data Cloud domain (the `*.c360a.salesforce.com` domain from Data Cloud Setup)
 - Data Cloud ingestion connector name (short name, e.g. `tableau_next_demo`)
 
-Connected App must have scopes: `cdp_ingest_api`, `cdp_query_api`, `api`, `sfap_api`.
+Connected App must have scopes: `cdp_ingest_api`, `cdp_query_api`, `full` or `api`, `sfap_api`.
 
 Save as `next_orgs.json`:
 ```json
@@ -358,9 +412,113 @@ Save as `next_orgs.json`:
   }
 }
 ```
-Do not proceed until this file exists.
+
+Do not proceed until auth succeeds.
 
 **Then gather demo requirements.** Parse first, ask second.
+
+---
+
+## STEP 2-DISCOVER — ORG DISCOVERY MODE (only if user chose option 2)
+
+### 2d-a — List existing semantic models
+
+Run this to fetch all semantic models in the org:
+
+```python
+import json, requests, warnings
+warnings.filterwarnings('ignore')
+from pathlib import Path
+
+cfg = json.loads(Path('next_config.json').read_text())
+r = requests.post(f"{cfg['sf_login_url']}/services/oauth2/token", data={
+    'grant_type': 'refresh_token', 'client_id': cfg['client_id'],
+    'client_secret': cfg['client_secret'], 'refresh_token': cfg['refresh_token'],
+})
+sf_token    = r.json()['access_token']
+sf_instance = r.json()['instance_url']
+SF_HDRS = {'Authorization': f'Bearer {sf_token}', 'Content-Type': 'application/json'}
+BASE_SEM = f'{sf_instance}/services/data/v65.0'
+
+r2 = requests.get(f'{BASE_SEM}/ssot/semantic/models', headers=SF_HDRS, params={'limit': 50})
+models = r2.json().get('semanticModels', r2.json().get('records', []))
+for i, m in enumerate(models, 1):
+    print(f"{i}. {m.get('label', m.get('name', ''))}  [{m.get('apiName', '')}]  — {m.get('description', '(no description)')[:80]}")
+```
+
+Present the results as a numbered list to the user:
+
+> "Here are the semantic models in your org:
+>
+> 1. **Gabe's Bank — Deposits** [gabes_bank_deposits] — Demo semantic model for...
+> 2. **Gabe Sales Data Sample** [Gabe_Sales_Data_Sample] — ...
+>
+> Which one would you like to work with? Reply with the number."
+
+Wait for the user's selection before proceeding.
+
+---
+
+### 2d-b — Inspect the selected model
+
+Once the user picks a model, fetch its full contents:
+
+```python
+model_api_name = "<selected model apiName>"
+
+r = requests.get(f'{BASE_SEM}/ssot/semantic/models/{model_api_name}',
+                 headers=SF_HDRS, params={'includeModelContent': True})
+m = r.json()
+
+print('=== DATA OBJECTS ===')
+for sdo in m.get('semanticDataObjects', []):
+    print(f"  {sdo['label']} ({sdo['apiName']})")
+    print(f"    Dimensions:  {[f['label'] for f in sdo.get('semanticDimensions', [])]}")
+    print(f"    Measures:    {[f['label'] for f in sdo.get('semanticMeasurements', [])]}")
+
+print('\n=== CALCULATED FIELDS ===')
+for c in m.get('semanticCalculatedMeasurements', []):
+    print(f"  [Measure] {c['label']} — {c.get('description','')[:80]}")
+for c in m.get('semanticCalculatedDimensions', []):
+    print(f"  [Dimension] {c['label']} — {c.get('description','')[:80]}")
+
+print('\n=== METRICS ===')
+r2 = requests.get(f'{BASE_SEM}/ssot/semantic/models/{model_api_name}/metrics', headers=SF_HDRS)
+for met in r2.json().get('metrics', []):
+    print(f"  {met['label']} ({met['apiName']})  type={met.get('aggregationType','')}  grains={met.get('timeGrains','')}")
+```
+
+Present a clean summary to the user:
+
+> "Here's what's in **[Model Label]**:
+>
+> **Data objects:** [list]
+> **Calculated fields:** [list]
+> **Metrics:** [list]
+>
+> What would you like to do?
+>
+> 1. Add a new calculated field
+> 2. Add a new metric
+> 3. Create new visualizations
+> 4. Build a new dashboard
+> 5. Do multiple of the above
+>
+> Reply with one or more numbers."
+
+Wait for the user's reply before proceeding.
+
+---
+
+### 2d-c — Execute the user's choice
+
+**If they want new calculated fields or metrics** — ask what business question they want to answer, then design and POST the field/metric using the patterns in the Implementation Reference (Steps D, E, F). Use the existing model's `model_api_name`, `sdo_api_names`, and `field_api` lookup — GET the model first to populate these.
+
+**If they want new visualizations** — ask which metrics or fields to visualize, design the viz, and POST using Step M patterns. Link to the existing workspace.
+
+**If they want a new dashboard** — ask which metrics and vizzes to include, then build and POST using Step N patterns.
+
+**Always fetch the current model state before making any additions** — never assume field apiNames from memory. Always GET the model and rebuild the `field_api` lookup before referencing any field.
 
 **Parse first**: Extract everything you can from what the user already said. Only ask for what's still missing. If the user's opening message contains bank name + persona + story, skip straight to STEP 2 and present the plan — do not ask for confirmation of things you already know.
 
