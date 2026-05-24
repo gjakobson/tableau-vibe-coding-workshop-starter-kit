@@ -279,28 +279,27 @@ from pathlib import Path
 
 cfg = json.loads(Path("next_config.json").read_text())  # or next_orgs.json equivalent
 
-# Step 1: SF token
-r = requests.post(f"{cfg['sf_login_url']}/services/oauth2/token", data={
+login_url = cfg["sf_login_url"]
+r = requests.post(login_url + "/services/oauth2/token", data={
     "grant_type": "refresh_token",
     "client_id": cfg["client_id"],
     "client_secret": cfg["client_secret"],
     "refresh_token": cfg["refresh_token"],
 })
 if not r.ok:
-    print(f"SF_AUTH_FAILED: {r.status_code} {r.text[:200]}")
+    print("SF_AUTH_FAILED: " + str(r.status_code) + " " + r.text[:200])
 else:
     sf_token    = r.json()["access_token"]
     sf_instance = r.json()["instance_url"]
-    # Step 2: Data Cloud token
-    r2 = requests.post(f"{sf_instance}/services/a360/token",
+    r2 = requests.post(sf_instance + "/services/a360/token",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         data={"grant_type": "urn:salesforce:grant-type:external:cdp",
               "subject_token": sf_token,
               "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"})
     if not r2.ok:
-        print(f"DC_AUTH_FAILED: {r2.status_code} {r2.text[:200]}")
+        print("DC_AUTH_FAILED: " + str(r2.status_code) + " " + r2.text[:200])
     else:
-        print(f"AUTH_OK: {sf_instance}")
+        print("AUTH_OK: " + sf_instance)
 ```
 
 **If auth succeeds** — tell the user:
@@ -362,20 +361,27 @@ import json, requests, warnings
 warnings.filterwarnings('ignore')
 from pathlib import Path
 
-cfg = json.loads(Path('next_config.json').read_text())
-r = requests.post(f"{cfg['sf_login_url']}/services/oauth2/token", data={
-    'grant_type': 'refresh_token', 'client_id': cfg['client_id'],
-    'client_secret': cfg['client_secret'], 'refresh_token': cfg['refresh_token'],
+cfg = json.loads(Path("next_config.json").read_text())
+r = requests.post(cfg["sf_login_url"] + "/services/oauth2/token", data={
+    "grant_type": "refresh_token", "client_id": cfg["client_id"],
+    "client_secret": cfg["client_secret"], "refresh_token": cfg["refresh_token"],
 })
-sf_token    = r.json()['access_token']
-sf_instance = r.json()['instance_url']
-SF_HDRS = {'Authorization': f'Bearer {sf_token}', 'Content-Type': 'application/json'}
-BASE_SEM = f'{sf_instance}/services/data/v65.0'
+sf_token    = r.json()["access_token"]
+sf_instance = r.json()["instance_url"]
+SF_HDRS = {"Authorization": "Bearer " + sf_token, "Content-Type": "application/json"}
+BASE_SEM = sf_instance + "/services/data/v65.0"
 
-r2 = requests.get(f'{BASE_SEM}/ssot/semantic/models', headers=SF_HDRS, params={'limit': 50})
-models = r2.json().get('semanticModels', r2.json().get('records', []))
-for i, m in enumerate(models, 1):
-    print(f"{i}. {m.get('label', m.get('name', ''))}  [{m.get('apiName', '')}]  — {m.get('description', '(no description)')[:80]}")
+r2 = requests.get(BASE_SEM + "/ssot/semantic/models", headers=SF_HDRS, params={"limit": 50})
+data = r2.json()
+models = data.get("items", data.get("semanticModels", data.get("records", [])))
+if not models:
+    print("(no semantic models found)")
+else:
+    for i, m in enumerate(models, 1):
+        label = m.get("label", m.get("name", ""))
+        api   = m.get("apiName", "")
+        desc  = m.get("description", "(no description)")[:80]
+        print(str(i) + ". " + label + "  [" + api + "]  — " + desc)
 ```
 
 Present the results as a numbered list to the user:
@@ -398,26 +404,26 @@ Once the user picks a model, fetch its full contents:
 ```python
 model_api_name = "<selected model apiName>"
 
-r = requests.get(f'{BASE_SEM}/ssot/semantic/models/{model_api_name}',
-                 headers=SF_HDRS, params={'includeModelContent': True})
+r = requests.get(BASE_SEM + "/ssot/semantic/models/" + model_api_name,
+                 headers=SF_HDRS, params={"includeModelContent": True})
 m = r.json()
 
-print('=== DATA OBJECTS ===')
-for sdo in m.get('semanticDataObjects', []):
-    print(f"  {sdo['label']} ({sdo['apiName']})")
-    print(f"    Dimensions:  {[f['label'] for f in sdo.get('semanticDimensions', [])]}")
-    print(f"    Measures:    {[f['label'] for f in sdo.get('semanticMeasurements', [])]}")
+print("=== DATA OBJECTS ===")
+for sdo in m.get("semanticDataObjects", []):
+    print("  " + sdo["label"] + " (" + sdo["apiName"] + ")")
+    print("    Dimensions:  " + str([f["label"] for f in sdo.get("semanticDimensions", [])]))
+    print("    Measures:    " + str([f["label"] for f in sdo.get("semanticMeasurements", [])]))
 
-print('\n=== CALCULATED FIELDS ===')
-for c in m.get('semanticCalculatedMeasurements', []):
-    print(f"  [Measure] {c['label']} — {c.get('description','')[:80]}")
-for c in m.get('semanticCalculatedDimensions', []):
-    print(f"  [Dimension] {c['label']} — {c.get('description','')[:80]}")
+print("\n=== CALCULATED FIELDS ===")
+for c in m.get("semanticCalculatedMeasurements", []):
+    print("  [Measure] " + c["label"] + " — " + c.get("description", "")[:80])
+for c in m.get("semanticCalculatedDimensions", []):
+    print("  [Dimension] " + c["label"] + " — " + c.get("description", "")[:80])
 
-print('\n=== METRICS ===')
-r2 = requests.get(f'{BASE_SEM}/ssot/semantic/models/{model_api_name}/metrics', headers=SF_HDRS)
-for met in r2.json().get('metrics', []):
-    print(f"  {met['label']} ({met['apiName']})  type={met.get('aggregationType','')}  grains={met.get('timeGrains','')}")
+print("\n=== METRICS ===")
+r2 = requests.get(BASE_SEM + "/ssot/semantic/models/" + model_api_name + "/metrics", headers=SF_HDRS)
+for met in r2.json().get("metrics", []):
+    print("  " + met["label"] + " (" + met["apiName"] + ")  type=" + met.get("aggregationType", "") + "  grains=" + str(met.get("timeGrains", "")))
 ```
 
 Present a clean summary to the user:
