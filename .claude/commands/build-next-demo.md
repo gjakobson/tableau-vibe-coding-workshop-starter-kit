@@ -450,6 +450,11 @@ Wait for the user's reply before proceeding.
 
 ### 2d-c — Execute the user's choice
 
+**Script discipline — always follow this order:**
+1. Use the Write tool to write the complete `.py` script to disk
+2. Only then run it with `python3 <script_name>.py`
+Never call `python3 <script_name>.py` before the Write tool has created the file.
+
 **If they want new calculated fields or metrics** — ask what business question they want to answer, then design and POST the field/metric using the patterns in the Implementation Reference (Steps D, E, F). Use the existing model's `model_api_name`, `sdo_api_names`, and `field_api` lookup — GET the model first to populate these.
 
 **If they want new visualizations** — ask which metrics or fields to visualize, design the viz, and POST using Step M patterns. Link to the existing workspace.
