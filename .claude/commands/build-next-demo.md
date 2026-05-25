@@ -490,6 +490,8 @@ Never call `python3 <script_name>.py` before the Write tool has created the file
 
 **If they want a new dashboard** — ask which metrics and vizzes to include, then build and POST using Step N patterns.
 
+**If they want to add vizzes to an existing dashboard** — GET the dashboard first, merge new widgets and cells into the existing structure, then PATCH with only `{"widgets": ..., "layouts": ..., "style": ...}`. Never include `label`, `description`, `name`, or `workspaceIdOrApiName` in a PATCH payload — they cause `JSON_PARSER_ERROR` (pitfall #59).
+
 **Always fetch the current model state before making any additions** — never assume field apiNames from memory. Always GET the model and rebuild the `field_api` lookup before referencing any field.
 
 ---
@@ -1306,7 +1308,7 @@ Workspace: {workspace_name}
 
 ---
 
-## ALL COMMON PITFALLS (58 items)
+## ALL COMMON PITFALLS (59 items)
 
 1. **Do not use the SF access token for Data Cloud API calls** — always complete the second token exchange at `/services/a360/token`.
 2. **Do not leave field descriptions blank** — Concierge quality degrades sharply with undescribed fields.
@@ -1366,6 +1368,7 @@ Workspace: {workspace_name}
 56. **Mark `size` and `isAutomaticSize` belong in `style.marks.ALL`, not in `visualSpecification.marks.ALL`** — undocumented but accepted at v66.0. Valid size types: `"Pixel"` (absolute) and `"Percentage"` (relative, 2–100% of cell, equivalent to UI "Relative" slider). Use `"Percentage"` / `75` for bars; use `"Pixel"` / `2` for lines. `isAutomaticSize` must be present alongside `size` or API returns INVALID_INPUT. `isAutomaticSize` in `visualSpecification.marks.ALL` is silently rejected.
 57. **Newly registered ingest schema objects return 404 from the bulk jobs endpoint for ~15–30s after DLO ACTIVE** — existing schemas are immediately ready; brand new ones need propagation time. Add retry logic with 15s backoff (up to 3 retries) on 404 in `bulk_ingest_submit()`. Existing (re-run) streams are unaffected.
 58. **CRM date fields (e.g. `Close Date`, `Created Date`) are stored as `DateTime` in the DLO, not `Date`** — the date-shift calc dimension expression will fail unless you wrap the field reference with `DATE()`: `DATE([sdo].[close_date__c])`. Always check `dataType` in the GET model response and add the `DATE()` cast for any `DateTime` field used as a time dimension.
+59. **Dashboard PATCH rejects create-only fields** — `PUT` is not allowed on dashboards (405). Use `PATCH`, but strip `label`, `description`, `name`, and `workspaceIdOrApiName` from the payload — those are accepted by `POST` but cause `JSON_PARSER_ERROR` on `PATCH`. Safe fields for PATCH: `widgets`, `layouts`, `style`. Pattern: `GET` the dashboard → merge in new widgets/cells → `PATCH` with only `{"widgets": ..., "layouts": ..., "style": ...}`.
 
 ---
 
