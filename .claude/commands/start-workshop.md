@@ -463,7 +463,8 @@ Present a clean summary to the user:
 > 2. Add a new metric
 > 3. Create new visualizations
 > 4. Build a new dashboard
-> 5. Do multiple of the above
+> 5. Add a custom viz extension (D3 chart not available natively in Tableau)
+> 6. Do multiple of the above
 >
 > Reply with one or more numbers."
 
@@ -492,7 +493,264 @@ Never call `python3 <script_name>.py` before the Write tool has created the file
 
 **If they want to add vizzes to an existing dashboard** — GET the dashboard first, merge new widgets and cells into the existing structure, then PATCH with only `{"widgets": ..., "layouts": ..., "style": ...}`. Never include `label`, `description`, `name`, or `workspaceIdOrApiName` in a PATCH payload — they cause `JSON_PARSER_ERROR` (pitfall #59).
 
+**If they want a custom viz extension (option 5)** — follow STEP VIZ-EXT below.
+
 **Always fetch the current model state before making any additions** — never assume field apiNames from memory. Always GET the model and rebuild the `field_api` lookup before referencing any field.
+
+---
+
+## STEP VIZ-EXT — Custom Viz Extension (LWC + D3)
+
+Use this when the user wants a chart type not available natively in Tableau Next (e.g. sunburst, beeswarm, radar, funnel, gauge, treemap, hexbin map, bullet chart).
+
+### VIZ-EXT-a — Ask what chart type and what data
+
+> "What kind of chart would you like? Some options that work well as extensions:
+>
+> - **Sunburst** — hierarchical part-of-whole (e.g. pipeline by stage → product)
+> - **Beeswarm** — distribution of individual deals/accounts along a measure
+> - **Radar / Spider** — compare multiple metrics across categories
+> - **Funnel** — conversion rates across stages
+> - **Gauge** — single KPI vs. target
+> - **Treemap** — relative size of categories
+> - **Bullet chart** — KPI vs. target vs. range
+>
+> Or describe what you want to show and I'll pick the right type.
+>
+> Also: which fields from the semantic model should it use? (I'll look them up if you're not sure.)"
+
+Wait for the user's reply before proceeding.
+
+---
+
+### VIZ-EXT-b — Generate the LWC files
+
+Use the Write tool to create 4 files in a new folder. Component name convention: `{bank_slug}{ChartType}` (e.g. `gabesSalesRadar`, `firstMeridianSunburst`).
+
+**Always use this SDK data pattern** (confirmed working from aftest):
+
+```javascript
+// Option A — registerFieldsForQuery (use when dashboard filters should apply)
+connectedCallback() {
+    if (this.sdk) {
+        const fields = [
+            { name: this._dimField,     dataType: "string" },
+            { name: this._measureField, dataType: "real" }
+        ];
+        this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
+        this.sdk.fetchData();  // MUST call explicitly
+        this.sdk.addEventListener("dataUpdate", (e) => {
+            this._data = e.detail?.data || [];
+            this.renderChart();
+        });
+    }
+}
+
+// Option B — fetchDataUsingQueryAndSource (use for one-shot load, no filter wiring needed)
+async loadData() {
+    const rows = await this.sdk.fetchDataUsingQueryAndSource(
+        { queryFields: [{ name: this._dimField, dataType: "string" },
+                        { name: this._measureField, dataType: "real" }] },
+        this._sdmName
+    );
+    this._data = rows;
+    this.renderChart();
+}
+```
+
+Use **Option A** by default (filter-aware). Use **Option B** only if the chart is a standalone snapshot.
+
+**File 1 — `{componentName}.js`:**
+```javascript
+import { LightningElement, api } from "lwc";
+import { loadScript } from "lightning/platformResourceLoader";
+import D3 from "@salesforce/resourceUrl/d3";
+
+export default class {ComponentName} extends LightningElement {
+    @api sdk;
+
+    // Defensive setters — dashboard editor sends null for unchanged props
+    _sdmName = "{model_api_name}";
+    @api get sdmName() { return this._sdmName; }
+    set sdmName(v) { if (v) { this._sdmName = v; } }
+
+    _dimField = "{dim_field_api_name}";
+    @api get dimField() { return this._dimField; }
+    set dimField(v) { if (v) { this._dimField = v; } }
+
+    _measureField = "{measure_field_api_name}";
+    @api get measureField() { return this._measureField; }
+    set measureField(v) { if (v) { this._measureField = v; } }
+
+    _queryLimit = 500;
+    @api get queryLimit() { return this._queryLimit; }
+    set queryLimit(v) { if (v) { this._queryLimit = parseInt(v, 10); } }
+
+    _d3Loaded = false;
+    _data = [];
+
+    async connectedCallback() {
+        await loadScript(this, D3);
+        this._d3Loaded = true;
+        if (this.sdk) {
+            const fields = [
+                { name: this._dimField,     dataType: "string" },
+                { name: this._measureField, dataType: "real" }
+            ];
+            this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
+            this.sdk.fetchData();
+            this.sdk.addEventListener("dataUpdate", (e) => {
+                this._data = e.detail?.data || [];
+                this.renderChart();
+            });
+        }
+    }
+
+    renderedCallback() {
+        // renderChart is called from dataUpdate; renderedCallback fires before data arrives
+    }
+
+    renderChart() {
+        const container = this.template.querySelector(".chart-container");
+        if (!container || !this._d3Loaded || !this._data.length) return;
+        // D3 chart code here — use this._data, this._dimField, this._measureField
+        // container.clientWidth / container.clientHeight for responsive sizing
+    }
+}
+```
+
+**File 2 — `{componentName}.html`:**
+```html
+<template>
+    <div class="chart-container" style="width:100%;height:100%;"></div>
+</template>
+```
+
+**File 3 — `{componentName}.css`:**
+```css
+.chart-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+```
+
+**File 4 — `{componentName}.js-meta.xml`:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>{Human Readable Label}</masterLabel>
+    <targets>
+        <target>analytics__Dashboard</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="analytics__Dashboard">
+            <property name="sdmName"      type="String"  label="Semantic Model Name" default="{model_api_name}" />
+            <property name="dimField"     type="String"  label="Dimension Field"     default="{dim_field_api_name}" />
+            <property name="measureField" type="String"  label="Measure Field"       default="{measure_field_api_name}" />
+            <property name="queryLimit"   type="Integer" label="Query Limit"         default="500" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
+```
+
+Write files to: `force-app/main/default/lwc/{componentName}/`
+
+If that directory doesn't exist in the current project, write to the project root instead and tell the user the path.
+
+---
+
+### VIZ-EXT-c — Deploy with SFDX
+
+After writing all 4 files, deploy using the `sf` CLI:
+
+```bash
+sf project deploy start --source-dir force-app/main/default/lwc/{componentName} --target-org {org_alias}
+```
+
+If `sf` is not available or no org alias is known, tell the user:
+> "The component files are written to `force-app/main/default/lwc/{componentName}/`. To deploy, run:
+> ```
+> sf project deploy start --source-dir force-app/main/default/lwc/{componentName}
+> ```
+> You'll need the `sf` CLI installed and authenticated to your org (`sf org login web`)."
+
+---
+
+### VIZ-EXT-d — Add to dashboard
+
+Once deployed, add the extension widget to a new or existing dashboard.
+
+**Dashboard widget payload for an LWC extension:**
+```python
+def dash_lwc_extension(name, component_name, namespace="c", properties=None):
+    """
+    component_name: the LWC component name, e.g. 'gabesSalesRadar'
+    namespace: 'c' for unmanaged, or your org namespace prefix
+    properties: dict of property name → value to pass to the component
+    """
+    fqn = namespace + ":" + component_name
+    return {
+        "actions": [],
+        "componentType": "Custom",
+        "label": component_name,
+        "name": name,
+        "parameters": {
+            "fullyQualifiedName": fqn,
+            "properties": properties or {}
+        },
+        "source": {
+            "name": fqn,
+            "namespace": namespace,
+            "type": "LightningWebComponent"
+        },
+        "type": "extension"
+    }
+```
+
+**Usage — add to a new dashboard:**
+```python
+widgets["ext_1"] = dash_lwc_extension(
+    "ext_1",
+    "{componentName}",
+    properties={"sdmName": model_api_name, "dimField": dim_field, "measureField": measure_field}
+)
+page_cells.append(dash_pos("ext_1", 2, 30, 70, 20))   # col, row, colspan, rowspan
+```
+
+**Usage — add to an existing dashboard (PATCH):**
+```python
+# GET existing dashboard, merge, PATCH (strip label/name/description/workspaceIdOrApiName)
+resp = requests.get(BASE_VIZ + "/tableau/dashboards/" + DASH_NAME, headers=SF_HDRS)
+dash = resp.json()
+widgets = {k: {kk: vv for kk, vv in w.items() if kk not in ("id", "status")}
+           for k, w in dash["widgets"].items()}
+cells = [{k: v for k, v in c.items() if k != "id"} for c in dash["layouts"][0]["pages"][0]["widgets"]]
+
+widgets["ext_1"] = dash_lwc_extension("ext_1", "{componentName}",
+    properties={"sdmName": model_api_name})
+cells.append({"name": "ext_1", "column": 2, "row": next_row, "colspan": 70, "rowspan": 20})
+
+resp = requests.patch(BASE_VIZ + "/tableau/dashboards/" + DASH_NAME, headers=SF_HDRS,
+    json={"widgets": widgets, "layouts": [{
+        "name": dash["layouts"][0]["name"],
+        "columnCount": dash["layouts"][0]["columnCount"],
+        "rowHeight": dash["layouts"][0]["rowHeight"],
+        "maxWidth": dash["layouts"][0]["maxWidth"],
+        "pages": [{"name": dash["layouts"][0]["pages"][0]["name"],
+                   "label": dash["layouts"][0]["pages"][0]["label"],
+                   "widgets": cells}],
+        "style": dash["layouts"][0]["style"],
+    }], "style": dash["style"]})
+```
+
+**Important notes:**
+- `namespace` is `"c"` for unmanaged components (no org namespace). If the org has a namespace prefix set in sfdx-project.json, use that instead.
+- `properties` keys must exactly match the `name` attributes in the `targetConfigs` of the meta.xml.
+- The component must be deployed before it can be referenced in a dashboard — a missing component causes a silent render failure, not an API error.
+- D3 must exist as a static resource named `d3` in the org. If it doesn't, the `loadScript` call will fail silently. Coach the user to upload it: Setup → Static Resources → New → name `d3`, upload d3.min.js.
 
 ---
 
