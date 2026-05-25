@@ -672,7 +672,7 @@ D3 must be uploaded as a static resource named `d3` before the component can loa
 
 ```python
 # _deploy_lwc.py
-import base64, json, os, re, requests, time
+import base64, io, json, requests, time, zipfile
 from pathlib import Path
 
 cfg = json.loads(Path("next_config.json").read_text())
@@ -684,62 +684,57 @@ r.raise_for_status()
 sf_token    = r.json()["access_token"]
 sf_instance = r.json()["instance_url"]
 SF_HDRS = {"Authorization": "Bearer " + sf_token, "Content-Type": "application/json"}
-TOOLING = sf_instance + "/services/data/v66.0/tooling"
-META    = sf_instance + "/services/data/v66.0"
+META = sf_instance + "/services/data/v66.0"
 
 COMPONENT_NAME = "{componentName}"   # e.g. gabesSalesTreemap
 LWC_DIR        = Path("lwc") / COMPONENT_NAME
 
-# ── 1. Ensure D3 static resource ─────────────────────────────────────────────
+# ── Build deployment zip ───────────────────────────────────────────────────────
+# D3 is bundled directly in the zip alongside the LWC — no pre-existing static
+# resource required. Salesforce validates @salesforce/resourceUrl/d3 at deploy
+# time, so both must be in the same batch. This is the same pattern used by
+# the aftest reference project (force-app/main/default/staticresources/).
+
 D3_URL = "https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"
+D3_META = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<StaticResource xmlns="http://soap.sforce.com/2006/04/metadata">\n'
+           '    <cacheControl>Public</cacheControl>\n'
+           '    <contentType>application/javascript</contentType>\n'
+           '</StaticResource>')
 
-r = requests.get(TOOLING + "/query?q=SELECT+Id+FROM+StaticResource+WHERE+Name='d3'", headers=SF_HDRS)
-if r.json().get("totalSize", 0) == 0:
-    print("Uploading D3 static resource...")
-    d3_content = requests.get(D3_URL).text
-    d3_b64 = base64.b64encode(d3_content.encode()).decode()
-    r2 = requests.post(TOOLING + "/sobjects/StaticResource", headers=SF_HDRS, json={
-        "Name": "d3",
-        "ContentType": "application/javascript",
-        "Body": d3_b64,
-        "CacheControl": "Public",
-        "Description": "D3.js v7 for LWC viz extensions"
-    })
-    if r2.ok:
-        print("  D3 uploaded: " + r2.json().get("id", ""))
-    else:
-        print("  D3 upload failed: " + r2.text[:300])
-else:
-    print("  D3 static resource already exists — skipping")
+print("Fetching D3 from CDN...")
+d3_js = requests.get(D3_URL).text
+print("  D3 fetched (" + str(len(d3_js) // 1024) + " KB)")
 
-# ── 2. Deploy LWC via Metadata API zip ───────────────────────────────────────
-import io, zipfile
-
-# Read the 4 component files
-files = {
+lwc_files = {
     COMPONENT_NAME + ".js":          (LWC_DIR / (COMPONENT_NAME + ".js")).read_text(),
     COMPONENT_NAME + ".html":        (LWC_DIR / (COMPONENT_NAME + ".html")).read_text(),
     COMPONENT_NAME + ".css":         (LWC_DIR / (COMPONENT_NAME + ".css")).read_text(),
     COMPONENT_NAME + ".js-meta.xml": (LWC_DIR / (COMPONENT_NAME + ".js-meta.xml")).read_text(),
 }
 
-# Build zip: lwc/{componentName}/{files}
 buf = io.BytesIO()
 with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-    for fname, content in files.items():
+    # LWC files
+    for fname, content in lwc_files.items():
         zf.writestr("lwc/" + COMPONENT_NAME + "/" + fname, content)
-    # package.xml required by Metadata API
+    # D3 static resource (bundled — no pre-existing resource needed)
+    zf.writestr("staticresources/d3.js", d3_js)
+    zf.writestr("staticresources/d3.resource-meta.xml", D3_META)
+    # package.xml — both types in one deployment
     zf.writestr("package.xml",
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n'
         '  <types><members>' + COMPONENT_NAME + '</members>'
         '<name>LightningComponentBundle</name></types>\n'
+        '  <types><members>d3</members>'
+        '<name>StaticResource</name></types>\n'
         '  <version>66.0</version>\n'
         '</Package>')
 buf.seek(0)
 zip_b64 = base64.b64encode(buf.read()).decode()
 
-# Deploy
+# ── Deploy ─────────────────────────────────────────────────────────────────────
 r = requests.post(META + "/metadata/deployRequest", headers=SF_HDRS, json={
     "deployOptions": {"allowMissingFiles": False, "checkOnly": False,
                       "ignoreWarnings": True, "rollbackOnError": True},
@@ -749,23 +744,23 @@ r.raise_for_status()
 deploy_id = r.json()["id"]
 print("Deploy started: " + deploy_id)
 
-# Poll until complete
 for _ in range(60):
     time.sleep(5)
     status_r = requests.get(META + "/metadata/deployRequest/" + deploy_id +
                             "?includeDetails=true", headers=SF_HDRS)
     status = status_r.json().get("deployResult", {})
-    state = status.get("status", "")
-    print("  " + state + "...", end="\r")
+    state  = status.get("status", "")
+    done   = status.get("numberComponentsDeployed", 0)
+    total  = status.get("numberComponentsTotal", 0)
+    print("  " + state + " (" + str(done) + "/" + str(total) + ")", end="\r")
     if state in ("Succeeded", "Failed", "Canceled"):
         print()
         break
 
 if state == "Succeeded":
-    print("LWC deployed successfully: " + COMPONENT_NAME)
+    print("Deployed: " + COMPONENT_NAME + " + d3 static resource")
 else:
-    details = status.get("details", {}).get("componentFailures", [])
-    for f in details:
+    for f in status.get("details", {}).get("componentFailures", []):
         print("  FAILURE: " + f.get("fileName", "") + " — " + f.get("problem", ""))
 ```
 
