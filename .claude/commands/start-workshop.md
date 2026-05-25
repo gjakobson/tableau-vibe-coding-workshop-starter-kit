@@ -531,19 +531,24 @@ Use the Write tool to create 4 files in a new folder. Component name convention:
 
 ```javascript
 // Option A — registerFieldsForQuery (use when dashboard filters should apply)
-connectedCallback() {
-    if (this.sdk) {
-        const fields = [
-            { name: this._dimField,     dataType: "string" },
-            { name: this._measureField, dataType: "real" }
-        ];
-        this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
-        this.sdk.fetchData();  // MUST call explicitly
-        this.sdk.addEventListener("dataUpdate", (e) => {
-            this._data = e.detail?.data || [];
-            this.renderChart();
-        });
-    }
+// CRITICAL: use sdk.on(), NOT sdk.addEventListener()
+// CRITICAL: dataUpdate callback receives rows as a plain array, NOT an event object
+async _initialize() {
+    if (!this.sdk) return;
+    await loadScript(this, D3);
+
+    this.sdk.on("filterChange", () => { this.sdk.fetchData(); });  // re-fetch on filter change
+    this.sdk.on("dataUpdate", (rows) => {                          // rows = plain array
+        this._data = Array.isArray(rows) ? rows : [];
+        this.renderChart();
+    });
+
+    const fields = [
+        { name: this._dimField,     dataType: "string" },
+        { name: this._measureField, dataType: "real" }
+    ];
+    this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
+    this.sdk.fetchData();
 }
 
 // Option B — fetchDataUsingQueryAndSource (use for one-shot load, no filter wiring needed)
@@ -557,6 +562,8 @@ async loadData() {
     this.renderChart();
 }
 ```
+
+**Common SDK mistake**: `sdk.addEventListener("dataUpdate", e => e.detail?.data)` — this is the DOM event API, not the Tableau Next SDK API. `sdk.addEventListener` does not exist. Always use `sdk.on(eventName, handler)`.
 
 Use **Option A** by default (filter-aware). Use **Option B** only if the chart is a standalone snapshot.
 
@@ -588,33 +595,53 @@ export default class {ComponentName} extends LightningElement {
 
     _d3Loaded = false;
     _data = [];
+    _unsubscribes = [];
 
-    async connectedCallback() {
-        await loadScript(this, D3);
-        this._d3Loaded = true;
-        if (this.sdk) {
-            const fields = [
-                { name: this._dimField,     dataType: "string" },
-                { name: this._measureField, dataType: "real" }
-            ];
-            this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
-            this.sdk.fetchData();
-            this.sdk.addEventListener("dataUpdate", (e) => {
-                this._data = e.detail?.data || [];
-                this.renderChart();
-            });
-        }
+    connectedCallback() {
+        this._initialize();
     }
 
-    renderedCallback() {
-        // renderChart is called from dataUpdate; renderedCallback fires before data arrives
+    disconnectedCallback() {
+        this._unsubscribes.forEach(fn => typeof fn === "function" && fn());
+        this._unsubscribes = [];
+    }
+
+    async _initialize() {
+        if (!this.sdk) {
+            console.error("[{componentName}] sdk not available");
+            return;
+        }
+        await loadScript(this, D3);
+        this._d3Loaded = true;
+
+        // sdk.on() — NOT sdk.addEventListener() (that's the DOM API, doesn't exist on SDK)
+        // dataUpdate handler receives rows as a plain array, NOT an event object
+        this._unsubscribes.push(
+            this.sdk.on("filterChange", () => { this.sdk.fetchData(); })
+        );
+        this._unsubscribes.push(
+            this.sdk.on("dataUpdate", (rows) => {
+                this._data = Array.isArray(rows) ? rows : [];
+                this.renderChart();
+            })
+        );
+
+        const fields = [
+            { name: this._dimField,     dataType: "string" },
+            { name: this._measureField, dataType: "real" }
+        ];
+        this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
+        this.sdk.fetchData();
     }
 
     renderChart() {
         const container = this.template.querySelector(".chart-container");
         if (!container || !this._d3Loaded || !this._data.length) return;
-        // D3 chart code here — use this._data, this._dimField, this._measureField
-        // container.clientWidth / container.clientHeight for responsive sizing
+        const W = container.clientWidth  || 400;
+        const H = container.clientHeight || 300;
+        if (W <= 0 || H <= 0) { setTimeout(() => this.renderChart(), 100); return; }
+        // D3 chart code here — use this._data, this._dimField, this._measureField, W, H
+        // Use window.d3 (loadScript puts D3 on window, not as ES module)
     }
 }
 ```
@@ -672,7 +699,7 @@ D3 must be uploaded as a static resource named `d3` before the component can loa
 
 ```python
 # _deploy_lwc.py
-import base64, io, json, requests, time, zipfile
+import base64, io, json, re, requests, time, zipfile
 from pathlib import Path
 
 cfg = json.loads(Path("next_config.json").read_text())
@@ -684,16 +711,14 @@ r.raise_for_status()
 sf_token    = r.json()["access_token"]
 sf_instance = r.json()["instance_url"]
 SF_HDRS = {"Authorization": "Bearer " + sf_token, "Content-Type": "application/json"}
-META = sf_instance + "/services/data/v66.0"
+META_REST = sf_instance + "/services/data/v66.0"
 
 COMPONENT_NAME = "{componentName}"   # e.g. gabesSalesTreemap
 LWC_DIR        = Path("lwc") / COMPONENT_NAME
 
 # ── Build deployment zip ───────────────────────────────────────────────────────
-# D3 is bundled directly in the zip alongside the LWC — no pre-existing static
-# resource required. Salesforce validates @salesforce/resourceUrl/d3 at deploy
-# time, so both must be in the same batch. This is the same pattern used by
-# the aftest reference project (force-app/main/default/staticresources/).
+# D3 is bundled directly in the zip alongside the LWC.
+# Static resource content file MUST be named "{name}.resource" (not ".js") — SOAP deploy requirement.
 
 D3_URL = "https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"
 D3_META = ('<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -715,13 +740,11 @@ lwc_files = {
 
 buf = io.BytesIO()
 with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-    # LWC files
     for fname, content in lwc_files.items():
         zf.writestr("lwc/" + COMPONENT_NAME + "/" + fname, content)
-    # D3 static resource (bundled — no pre-existing resource needed)
-    zf.writestr("staticresources/d3.js", d3_js)
+    # Static resource: content file must use .resource extension (not .js)
+    zf.writestr("staticresources/d3.resource", d3_js)
     zf.writestr("staticresources/d3.resource-meta.xml", D3_META)
-    # package.xml — both types in one deployment
     zf.writestr("package.xml",
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n'
@@ -731,22 +754,42 @@ with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         '<name>StaticResource</name></types>\n'
         '  <version>66.0</version>\n'
         '</Package>')
-buf.seek(0)
-zip_b64 = base64.b64encode(buf.read()).decode()
+zip_b64 = base64.b64encode(buf.getvalue()).decode()
 
-# ── Deploy ─────────────────────────────────────────────────────────────────────
-r = requests.post(META + "/metadata/deployRequest", headers=SF_HDRS, json={
-    "deployOptions": {"allowMissingFiles": False, "checkOnly": False,
-                      "ignoreWarnings": True, "rollbackOnError": True},
-    "zipFile": zip_b64
-})
-r.raise_for_status()
-deploy_id = r.json()["id"]
-print("Deploy started: " + deploy_id)
+# ── Deploy via SOAP Metadata API ───────────────────────────────────────────────
+# REST deployRequest does not accept zipFile in JSON body — use SOAP instead.
+soap_body = f"""<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:met="http://soap.sforce.com/2006/04/metadata">
+  <soapenv:Header>
+    <met:CallOptions/>
+    <met:SessionHeader><met:sessionId>{sf_token}</met:sessionId></met:SessionHeader>
+  </soapenv:Header>
+  <soapenv:Body>
+    <met:deploy>
+      <met:ZipFile>{zip_b64}</met:ZipFile>
+      <met:DeployOptions>
+        <met:singlePackage>true</met:singlePackage>
+        <met:rollbackOnError>true</met:rollbackOnError>
+        <met:ignoreWarnings>true</met:ignoreWarnings>
+      </met:DeployOptions>
+    </met:deploy>
+  </soapenv:Body>
+</soapenv:Envelope>"""
 
+r = requests.post(sf_instance + "/services/Soap/m/66.0",
+    headers={"Content-Type": "text/xml", "SOAPAction": "deploy"}, data=soap_body)
+match = re.search(r'<id>([^<]+)</id>', r.text)
+if not match:
+    print("Deploy failed to start:", r.text[:400])
+    raise SystemExit(1)
+job_id = match.group(1)
+print("Deploy started: " + job_id)
+
+state = ""
 for _ in range(60):
     time.sleep(5)
-    status_r = requests.get(META + "/metadata/deployRequest/" + deploy_id +
+    status_r = requests.get(META_REST + "/metadata/deployRequest/" + job_id +
                             "?includeDetails=true", headers=SF_HDRS)
     status = status_r.json().get("deployResult", {})
     state  = status.get("status", "")
@@ -760,7 +803,7 @@ for _ in range(60):
 if state == "Succeeded":
     print("Deployed: " + COMPONENT_NAME + " + d3 static resource")
 else:
-    for f in status.get("details", {}).get("componentFailures", []):
+    for f in (status.get("details", {}).get("componentFailures") or []):
         print("  FAILURE: " + f.get("fileName", "") + " — " + f.get("problem", ""))
 ```
 
