@@ -31,6 +31,13 @@ next_demos.json
 # Bank-specific demo outputs
 *_next_demo.py
 *_demo_guide.md
+*_dashboard.py
+*_fix.py
+
+# Throwaway helper scripts generated during skill execution
+_check_auth.py
+_list_models.py
+_inspect_model.py
 
 # Local memory
 memory/

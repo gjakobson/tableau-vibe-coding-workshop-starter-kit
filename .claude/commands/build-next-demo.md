@@ -271,9 +271,10 @@ Store the selected config as `CONFIG` and `ORG_NAME`.
 
 ### 1b — Verify authentication
 
-Once you have a config, run this inline Python to test it:
+Use the Write tool to create `_check_auth.py`, then run it:
 
 ```python
+# _check_auth.py
 import json, requests
 from pathlib import Path
 
@@ -301,6 +302,8 @@ else:
     else:
         print("AUTH_OK: " + sf_instance)
 ```
+
+Run with: `python3 _check_auth.py`
 
 **If auth succeeds** — tell the user:
 
@@ -354,9 +357,10 @@ Then proceed to STEP 2-DISCOVER.
 
 ### 2d-a — List existing semantic models
 
-Run this to fetch all semantic models in the org:
+Use the Write tool to create `_list_models.py`, then run it:
 
 ```python
+# _list_models.py
 import json, requests, warnings
 warnings.filterwarnings('ignore')
 from pathlib import Path
@@ -384,6 +388,8 @@ else:
         print(str(i) + ". " + label + "  [" + api + "]  — " + desc)
 ```
 
+Run with: `python3 _list_models.py`
+
 Present the results as a numbered list to the user:
 
 > "Here are the semantic models in your org:
@@ -399,9 +405,24 @@ Wait for the user's selection before proceeding.
 
 ### 2d-b — Inspect the selected model
 
-Once the user picks a model, fetch its full contents:
+Use the Write tool to create `_inspect_model.py` (substituting the real `model_api_name`), then run it:
 
 ```python
+# _inspect_model.py
+import json, requests, warnings
+warnings.filterwarnings('ignore')
+from pathlib import Path
+
+cfg = json.loads(Path("next_config.json").read_text())
+r = requests.post(cfg["sf_login_url"] + "/services/oauth2/token", data={
+    "grant_type": "refresh_token", "client_id": cfg["client_id"],
+    "client_secret": cfg["client_secret"], "refresh_token": cfg["refresh_token"],
+})
+sf_token    = r.json()["access_token"]
+sf_instance = r.json()["instance_url"]
+SF_HDRS = {"Authorization": "Bearer " + sf_token, "Content-Type": "application/json"}
+BASE_SEM = sf_instance + "/services/data/v65.0"
+
 model_api_name = "<selected model apiName>"
 
 r = requests.get(BASE_SEM + "/ssot/semantic/models/" + model_api_name,
@@ -425,6 +446,8 @@ r2 = requests.get(BASE_SEM + "/ssot/semantic/models/" + model_api_name + "/metri
 for met in r2.json().get("metrics", []):
     print("  " + met["label"] + " (" + met["apiName"] + ")  type=" + met.get("aggregationType", "") + "  grains=" + str(met.get("timeGrains", "")))
 ```
+
+Run with: `python3 _inspect_model.py`
 
 Present a clean summary to the user:
 
