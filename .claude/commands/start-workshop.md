@@ -543,9 +543,13 @@ async _initialize() {
         this.renderChart();
     });
 
+    // Field format: "SdoApiName.fieldApiName" — SDO prefix is REQUIRED.
+    // IMPORTANT: only raw SDO fields work — calc measurements (e.g. Deal_Size_clc,
+    // Total_Loan_Amount_clc) are model-level and cannot be addressed as Sdo.calcField.
+    // Use the underlying raw SDO field (e.g. Total_Amount, loan_amount__c) instead.
     const fields = [
-        { name: this._dimField,     dataType: "string" },
-        { name: this._measureField, dataType: "real" }
+        { model: `${this._sdoName}.${this._dimField}`,     rowGrouping: true  },
+        { model: `${this._sdoName}.${this._measureField}`, rowGrouping: false }
     ];
     this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
     this.sdk.fetchData();
@@ -581,11 +585,18 @@ export default class {ComponentName} extends LightningElement {
     @api get sdmName() { return this._sdmName; }
     set sdmName(v) { if (v) { this._sdmName = v; } }
 
-    _dimField = "{dim_field_api_name}";
+    // SDO (table) name — needed to qualify field refs as "SdoName.fieldApiName"
+    _sdoName = "{sdo_api_name}";   // e.g. "Opportunity", "Loan_Originations"
+    @api get sdoName() { return this._sdoName; }
+    set sdoName(v) { if (v) { this._sdoName = v; } }
+
+    // Raw SDO field API names — calc measurements (e.g. Deal_Size_clc) are model-level
+    // and CANNOT be used here. Use the underlying raw SDO field instead.
+    _dimField = "{dim_field_api_name}";      // e.g. "Opportunity_Stage"
     @api get dimField() { return this._dimField; }
     set dimField(v) { if (v) { this._dimField = v; } }
 
-    _measureField = "{measure_field_api_name}";
+    _measureField = "{measure_field_api_name}";  // e.g. "Total_Amount" (NOT "Deal_Size_clc")
     @api get measureField() { return this._measureField; }
     set measureField(v) { if (v) { this._measureField = v; } }
 
@@ -616,6 +627,7 @@ export default class {ComponentName} extends LightningElement {
 
         // sdk.on() — NOT sdk.addEventListener() (that's the DOM API, doesn't exist on SDK)
         // dataUpdate handler receives rows as a plain array, NOT an event object
+        // Rows are positional when using model/rowGrouping format: index 0 = dim, index 1 = measure
         this._unsubscribes.push(
             this.sdk.on("filterChange", () => { this.sdk.fetchData(); })
         );
@@ -626,9 +638,11 @@ export default class {ComponentName} extends LightningElement {
             })
         );
 
+        // Fields MUST be qualified as "SdoApiName.rawFieldApiName"
+        // Calc measurements cannot be referenced here — use raw SDO fields only
         const fields = [
-            { name: this._dimField,     dataType: "string" },
-            { name: this._measureField, dataType: "real" }
+            { model: `${this._sdoName}.${this._dimField}`,     rowGrouping: true  },
+            { model: `${this._sdoName}.${this._measureField}`, rowGrouping: false }
         ];
         this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
         this.sdk.fetchData();
@@ -640,8 +654,9 @@ export default class {ComponentName} extends LightningElement {
         const W = container.clientWidth  || 400;
         const H = container.clientHeight || 300;
         if (W <= 0 || H <= 0) { setTimeout(() => this.renderChart(), 100); return; }
-        // D3 chart code here — use this._data, this._dimField, this._measureField, W, H
-        // Use window.d3 (loadScript puts D3 on window, not as ES module)
+        const d3 = window.d3;  // loadScript puts D3 on window, not as ES module
+        // Rows are positional arrays: row[0] = dim value, row[1] = measure value
+        // D3 chart code here using W, H, d3, this._data
     }
 }
 ```
