@@ -491,7 +491,7 @@ Never call `python3 <script_name>.py` before the Write tool has created the file
 
 **If they want a new dashboard** — ask which metrics and vizzes to include, then build and POST using Step N patterns.
 
-**If they want to add vizzes to an existing dashboard** — GET the dashboard first, merge new widgets and cells into the existing structure, then PATCH with only `{"widgets": ..., "layouts": ..., "style": ...}`. Never include `label`, `description`, `name`, or `workspaceIdOrApiName` in a PATCH payload — they cause `JSON_PARSER_ERROR` (pitfall #59).
+**If they want to add vizzes to an existing dashboard** — GET the dashboard first, clean each existing widget (strip `id`, `status`, `label` from top-level; strip `label`, `type` from each widget's `source` object), merge new widgets/cells, then PATCH with the full payload including `label`, `name`, `description`, `workspaceIdOrApiName`, `style`, `widgets`, `layouts` — omitting those top-level fields causes 500 errors (pitfall #59). Never add a `source` field to extension-type widgets in a PATCH payload — causes 403 (pitfall #60).
 
 **If they want a custom viz extension (option 5)** — follow STEP VIZ-EXT below.
 
@@ -791,23 +791,23 @@ def dash_lwc_extension(name, component_name, namespace="c", properties=None):
     component_name: the LWC component name, e.g. 'gabesSalesRadar'
     namespace: 'c' for unmanaged, or your org namespace prefix
     properties: dict of property name → value to pass to the component
+
+    IMPORTANT: do NOT include a "source" field here.
+    Adding "source" to an extension widget causes 403 ACCESS_DENIED on PATCH
+    even with edit permissions. Omit it entirely — the API infers the component
+    from fullyQualifiedName in parameters.
     """
     fqn = namespace + ":" + component_name
     return {
         "actions": [],
         "componentType": "Custom",
-        "label": component_name,
         "name": name,
         "parameters": {
             "fullyQualifiedName": fqn,
             "properties": properties or {}
         },
-        "source": {
-            "name": fqn,
-            "namespace": namespace,
-            "type": "LightningWebComponent"
-        },
         "type": "extension"
+        # NO "source" field — causes 403 ACCESS_DENIED on PATCH (pitfall #60)
     }
 ```
 
@@ -823,35 +823,82 @@ page_cells.append(dash_pos("ext_1", 2, 30, 70, 20))   # col, row, colspan, rowsp
 
 **Usage — add to an existing dashboard (PATCH):**
 ```python
-# GET existing dashboard, merge, PATCH (strip label/name/description/workspaceIdOrApiName)
+def clean_widget(w):
+    # Strip fields the PATCH API rejects from existing widgets
+    w = {k: v for k, v in w.items() if k not in ("id", "status", "label")}
+    if "source" in w:
+        w["source"] = {k: v for k, v in w["source"].items() if k not in ("label", "type")}
+    return w
+
 resp = requests.get(BASE_VIZ + "/tableau/dashboards/" + DASH_NAME, headers=SF_HDRS)
 dash = resp.json()
-widgets = {k: {kk: vv for kk, vv in w.items() if kk not in ("id", "status")}
-           for k, w in dash["widgets"].items()}
+widgets = {k: clean_widget(dict(w)) for k, w in dash["widgets"].items()}
 cells = [{k: v for k, v in c.items() if k != "id"} for c in dash["layouts"][0]["pages"][0]["widgets"]]
 
+# New extension widget — NO "source" field (pitfall #60: causes 403 if present)
 widgets["ext_1"] = dash_lwc_extension("ext_1", "{componentName}",
     properties={"sdmName": model_api_name})
 cells.append({"name": "ext_1", "column": 2, "row": next_row, "colspan": 70, "rowspan": 20})
 
+# PATCH requires the full top-level payload — label, name, description, workspaceIdOrApiName
+# are NOT optional on PATCH (contradicts old pitfall #59 — see corrected pitfall #59 below)
 resp = requests.patch(BASE_VIZ + "/tableau/dashboards/" + DASH_NAME, headers=SF_HDRS,
-    json={"widgets": widgets, "layouts": [{
-        "name": dash["layouts"][0]["name"],
-        "columnCount": dash["layouts"][0]["columnCount"],
-        "rowHeight": dash["layouts"][0]["rowHeight"],
-        "maxWidth": dash["layouts"][0]["maxWidth"],
-        "pages": [{"name": dash["layouts"][0]["pages"][0]["name"],
-                   "label": dash["layouts"][0]["pages"][0]["label"],
-                   "widgets": cells}],
-        "style": dash["layouts"][0]["style"],
-    }], "style": dash["style"]})
+    json={
+        "label": dash["label"],
+        "name": dash["name"],
+        "description": dash.get("description", ""),
+        "workspaceIdOrApiName": dash["workspaceIdOrApiName"],
+        "style": dash["style"],
+        "widgets": widgets,
+        "layouts": [{
+            "name": dash["layouts"][0]["name"],
+            "columnCount": dash["layouts"][0]["columnCount"],
+            "rowHeight": dash["layouts"][0]["rowHeight"],
+            "maxWidth": dash["layouts"][0]["maxWidth"],
+            "pages": [{"name": dash["layouts"][0]["pages"][0]["name"],
+                       "label": dash["layouts"][0]["pages"][0]["label"],
+                       "widgets": cells}],
+            "style": dash["layouts"][0]["style"],
+        }],
+    })
 ```
 
 **Important notes:**
 - `namespace` is `"c"` for unmanaged components (no org namespace). If the org has a namespace prefix, use that instead.
 - `properties` keys must exactly match the `name` attributes in the `targetConfigs` of the meta.xml.
 - The component must be deployed before it can be referenced in a dashboard — a missing component causes a silent render failure, not an API error.
-- D3 is handled automatically by `_deploy_lwc.py` — it checks for the static resource and uploads it from CDN if missing. No manual Setup steps needed.
+- D3 is handled automatically by `_deploy_lwc.py` — it fetches D3 from CDN and bundles it in the same zip deployment as the LWC. No manual Setup steps needed.
+
+**If the dashboard shows a blank image labeled `ext_{componentName}.png` instead of the chart:**
+
+This means the dashboard tile rendered but the LWC component didn't draw. Work through these causes in order:
+
+1. **D3 not loaded** — `loadScript` is async. The `renderChart()` call must happen inside the `dataUpdate` handler (after `await loadScript` and after data arrives). Never call `renderChart()` from `renderedCallback()` — data won't be there yet. The component template in VIZ-EXT-b handles this correctly; verify your generated code follows it.
+
+2. **Container has zero dimensions at render time** — `container.clientWidth` returns 0 if the element hasn't been laid out yet. Add a `ResizeObserver` or a short `setTimeout` fallback before calling D3's layout:
+   ```javascript
+   renderChart() {
+       const container = this.template.querySelector(".chart-container");
+       if (!container || !this._d3Loaded || !this._data.length) return;
+       const width = container.clientWidth || 400;   // fallback if not laid out yet
+       const height = container.clientHeight || 300;
+       // ... D3 code using width/height
+   }
+   ```
+
+3. **Wrong SDK pattern** — if `sdk` is undefined at `connectedCallback` time (can happen in some dashboard contexts), the `dataUpdate` listener is never registered. Add a null check and a fallback:
+   ```javascript
+   async connectedCallback() {
+       await loadScript(this, D3);
+       this._d3Loaded = true;
+       if (!this.sdk) { console.warn("sdk not available"); return; }
+       // ... rest of setup
+   }
+   ```
+
+4. **Stale deployment** — after PATCH succeeds, hard-refresh the dashboard page (Cmd+Shift+R / Ctrl+Shift+F5). The platform caches static resources aggressively.
+
+5. **Namespace mismatch** — if the org has a namespace prefix, the `fullyQualifiedName` must use it instead of `"c"`. Check org namespace in Setup → Company Settings → Company Information → Namespace Prefix.
 
 ---
 
@@ -1667,7 +1714,7 @@ Workspace: {workspace_name}
 
 ---
 
-## ALL COMMON PITFALLS (59 items)
+## ALL COMMON PITFALLS (60 items)
 
 1. **Do not use the SF access token for Data Cloud API calls** — always complete the second token exchange at `/services/a360/token`.
 2. **Do not leave field descriptions blank** — Concierge quality degrades sharply with undescribed fields.
@@ -1727,7 +1774,8 @@ Workspace: {workspace_name}
 56. **Mark `size` and `isAutomaticSize` belong in `style.marks.ALL`, not in `visualSpecification.marks.ALL`** — undocumented but accepted at v66.0. Valid size types: `"Pixel"` (absolute) and `"Percentage"` (relative, 2–100% of cell, equivalent to UI "Relative" slider). Use `"Percentage"` / `75` for bars; use `"Pixel"` / `2` for lines. `isAutomaticSize` must be present alongside `size` or API returns INVALID_INPUT. `isAutomaticSize` in `visualSpecification.marks.ALL` is silently rejected.
 57. **Newly registered ingest schema objects return 404 from the bulk jobs endpoint for ~15–30s after DLO ACTIVE** — existing schemas are immediately ready; brand new ones need propagation time. Add retry logic with 15s backoff (up to 3 retries) on 404 in `bulk_ingest_submit()`. Existing (re-run) streams are unaffected.
 58. **CRM date fields (e.g. `Close Date`, `Created Date`) are stored as `DateTime` in the DLO, not `Date`** — the date-shift calc dimension expression will fail unless you wrap the field reference with `DATE()`: `DATE([sdo].[close_date__c])`. Always check `dataType` in the GET model response and add the `DATE()` cast for any `DateTime` field used as a time dimension.
-59. **Dashboard PATCH rejects create-only fields** — `PUT` is not allowed on dashboards (405). Use `PATCH`, but strip `label`, `description`, `name`, and `workspaceIdOrApiName` from the payload — those are accepted by `POST` but cause `JSON_PARSER_ERROR` on `PATCH`. Safe fields for PATCH: `widgets`, `layouts`, `style`. Pattern: `GET` the dashboard → merge in new widgets/cells → `PATCH` with only `{"widgets": ..., "layouts": ..., "style": ...}`.
+59. **Dashboard PATCH field-stripping rules** — `PUT` is not allowed on dashboards (405). Use `PATCH`. The full payload IS required: `label`, `name`, `description`, `workspaceIdOrApiName`, `style`, `widgets`, `layouts` — omitting `label` or `workspaceIdOrApiName` causes 500. What to strip from EXISTING widgets before sending: `id`, `status`, `label` from widget top-level; `label` and `type` from each widget's `source` object. Do NOT strip these from extension-type widgets — they have no `source` (see pitfall #60). Pattern: `GET` → `clean_widget()` each existing widget → merge in new widget(s) → `PATCH` with full payload.
+60. **Extension widget `source` field causes 403 ACCESS_DENIED on PATCH** — Even with edit permissions, including a `source` object on an extension-type widget in a PATCH payload triggers `ACCESS_DENIED`. Omit `source` entirely from extension widgets. The API infers the component from `parameters.fullyQualifiedName`. Non-extension widgets (metric, visualization, filter, text) keep their `source` but have `label` and `type` stripped from it (pitfall #59).
 
 ---
 
