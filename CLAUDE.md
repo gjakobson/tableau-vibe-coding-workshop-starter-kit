@@ -21,7 +21,7 @@ If the user opens with "hello", "hi", "help", "what can you do", or anything tha
 > **Tableau Next** (Semantic Data Model + Concierge AI)
 > Builds a complete workspace, semantic model, visualizations, and AI-ready metrics in Salesforce Data Cloud.
 > - First time only: run `python3 next_setup.py` to connect your Salesforce org
-> - Then type `/build-next-demo` and I'll handle the rest
+> - Then type `/start-workshop` and I'll handle the rest
 >
 > Just tell me the bank name, the persona, and the story you want to tell — I'll ask for anything else I need.
 

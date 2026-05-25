@@ -403,7 +403,7 @@ def main():
   To build your first Tableau Next demo, open Claude Code
   and type:
 
-      /build-next-demo
+      /start-workshop
 
   Claude will ask you for the bank name, persona, and story,
   then build the complete workspace, semantic model, and

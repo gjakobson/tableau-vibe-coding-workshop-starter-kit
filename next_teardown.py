@@ -457,5 +457,5 @@ print(f"""
 
   To build a new demo, open Claude Code and type:
 
-      /build-next-demo
+      /start-workshop
 """)

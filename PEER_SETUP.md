@@ -114,7 +114,7 @@ The scripts need a connector in Data Cloud to ingest synthetic data.
 
 1. Install Claude Code: `npm install -g @anthropic-ai/claude-code` (or follow Anthropic's docs)
 2. Open this project folder in Claude Code
-3. The `/build-next-demo` skill loads automatically — it's in `.claude/commands/build-next-demo.md`
+3. The `/start-workshop` skill loads automatically — it's in `.claude/commands/start-workshop.md`
 
 ---
 
@@ -123,7 +123,7 @@ The scripts need a connector in Data Cloud to ingest synthetic data.
 Open Claude Code in this project folder and type:
 
 ```
-/build-next-demo
+/start-workshop
 ```
 
 Claude will ask you for:
@@ -150,7 +150,7 @@ Reply **go** when the plan looks right. The script runs automatically — total 
 
 ## What Gets Built
 
-Each `/build-next-demo` run creates:
+Each `/start-workshop` run creates:
 
 | Asset | Location |
 |---|---|

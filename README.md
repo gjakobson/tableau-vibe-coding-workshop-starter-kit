@@ -44,7 +44,7 @@ Claude will guide you through everything interactively — creating a Connected 
 
 Type:
 ```
-/build-next-demo
+/start-workshop
 ```
 
 Claude will ask for:

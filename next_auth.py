@@ -128,7 +128,7 @@ def main():
     if not conn_sf_id:
         print("\nNext: create the IngestAPI connector in Data Cloud Setup (name it 'tableau_next_demo'), then re-run this script.")
     else:
-        print("You're ready to run /build-next-demo")
+        print("You're ready to run /start-workshop")
 
 
 if __name__ == "__main__":
