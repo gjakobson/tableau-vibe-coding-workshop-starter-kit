@@ -662,20 +662,114 @@ If that directory doesn't exist in the current project, write to the project roo
 
 ---
 
-### VIZ-EXT-c — Deploy with SFDX
+### VIZ-EXT-c — Deploy via Metadata REST API (no sf CLI needed)
 
-After writing all 4 files, deploy using the `sf` CLI:
+Everything is scripted using the same SF token from authentication. Write `_deploy_lwc.py` and run it.
 
-```bash
-sf project deploy start --source-dir force-app/main/default/lwc/{componentName} --target-org {org_alias}
+**Step 1 — Ensure D3 static resource exists:**
+
+D3 must be uploaded as a static resource named `d3` before the component can load it. The script checks first and uploads only if missing.
+
+```python
+# _deploy_lwc.py
+import base64, json, os, re, requests, time
+from pathlib import Path
+
+cfg = json.loads(Path("next_config.json").read_text())
+r = requests.post(cfg["sf_login_url"] + "/services/oauth2/token", data={
+    "grant_type": "refresh_token", "client_id": cfg["client_id"],
+    "client_secret": cfg["client_secret"], "refresh_token": cfg["refresh_token"],
+})
+r.raise_for_status()
+sf_token    = r.json()["access_token"]
+sf_instance = r.json()["instance_url"]
+SF_HDRS = {"Authorization": "Bearer " + sf_token, "Content-Type": "application/json"}
+TOOLING = sf_instance + "/services/data/v66.0/tooling"
+META    = sf_instance + "/services/data/v66.0"
+
+COMPONENT_NAME = "{componentName}"   # e.g. gabesSalesTreemap
+LWC_DIR        = Path("lwc") / COMPONENT_NAME
+
+# ── 1. Ensure D3 static resource ─────────────────────────────────────────────
+D3_URL = "https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"
+
+r = requests.get(TOOLING + "/query?q=SELECT+Id+FROM+StaticResource+WHERE+Name='d3'", headers=SF_HDRS)
+if r.json().get("totalSize", 0) == 0:
+    print("Uploading D3 static resource...")
+    d3_content = requests.get(D3_URL).text
+    d3_b64 = base64.b64encode(d3_content.encode()).decode()
+    r2 = requests.post(TOOLING + "/sobjects/StaticResource", headers=SF_HDRS, json={
+        "Name": "d3",
+        "ContentType": "application/javascript",
+        "Body": d3_b64,
+        "CacheControl": "Public",
+        "Description": "D3.js v7 for LWC viz extensions"
+    })
+    if r2.ok:
+        print("  D3 uploaded: " + r2.json().get("id", ""))
+    else:
+        print("  D3 upload failed: " + r2.text[:300])
+else:
+    print("  D3 static resource already exists — skipping")
+
+# ── 2. Deploy LWC via Metadata API zip ───────────────────────────────────────
+import io, zipfile
+
+# Read the 4 component files
+files = {
+    COMPONENT_NAME + ".js":          (LWC_DIR / (COMPONENT_NAME + ".js")).read_text(),
+    COMPONENT_NAME + ".html":        (LWC_DIR / (COMPONENT_NAME + ".html")).read_text(),
+    COMPONENT_NAME + ".css":         (LWC_DIR / (COMPONENT_NAME + ".css")).read_text(),
+    COMPONENT_NAME + ".js-meta.xml": (LWC_DIR / (COMPONENT_NAME + ".js-meta.xml")).read_text(),
+}
+
+# Build zip: lwc/{componentName}/{files}
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+    for fname, content in files.items():
+        zf.writestr("lwc/" + COMPONENT_NAME + "/" + fname, content)
+    # package.xml required by Metadata API
+    zf.writestr("package.xml",
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<Package xmlns="http://soap.sforce.com/2006/04/metadata">\n'
+        '  <types><members>' + COMPONENT_NAME + '</members>'
+        '<name>LightningComponentBundle</name></types>\n'
+        '  <version>66.0</version>\n'
+        '</Package>')
+buf.seek(0)
+zip_b64 = base64.b64encode(buf.read()).decode()
+
+# Deploy
+r = requests.post(META + "/metadata/deployRequest", headers=SF_HDRS, json={
+    "deployOptions": {"allowMissingFiles": False, "checkOnly": False,
+                      "ignoreWarnings": True, "rollbackOnError": True},
+    "zipFile": zip_b64
+})
+r.raise_for_status()
+deploy_id = r.json()["id"]
+print("Deploy started: " + deploy_id)
+
+# Poll until complete
+for _ in range(60):
+    time.sleep(5)
+    status_r = requests.get(META + "/metadata/deployRequest/" + deploy_id +
+                            "?includeDetails=true", headers=SF_HDRS)
+    status = status_r.json().get("deployResult", {})
+    state = status.get("status", "")
+    print("  " + state + "...", end="\r")
+    if state in ("Succeeded", "Failed", "Canceled"):
+        print()
+        break
+
+if state == "Succeeded":
+    print("LWC deployed successfully: " + COMPONENT_NAME)
+else:
+    details = status.get("details", {}).get("componentFailures", [])
+    for f in details:
+        print("  FAILURE: " + f.get("fileName", "") + " — " + f.get("problem", ""))
 ```
 
-If `sf` is not available or no org alias is known, tell the user:
-> "The component files are written to `force-app/main/default/lwc/{componentName}/`. To deploy, run:
-> ```
-> sf project deploy start --source-dir force-app/main/default/lwc/{componentName}
-> ```
-> You'll need the `sf` CLI installed and authenticated to your org (`sf org login web`)."
+Run with: `python3 _deploy_lwc.py`
 
 ---
 
@@ -747,10 +841,10 @@ resp = requests.patch(BASE_VIZ + "/tableau/dashboards/" + DASH_NAME, headers=SF_
 ```
 
 **Important notes:**
-- `namespace` is `"c"` for unmanaged components (no org namespace). If the org has a namespace prefix set in sfdx-project.json, use that instead.
+- `namespace` is `"c"` for unmanaged components (no org namespace). If the org has a namespace prefix, use that instead.
 - `properties` keys must exactly match the `name` attributes in the `targetConfigs` of the meta.xml.
 - The component must be deployed before it can be referenced in a dashboard — a missing component causes a silent render failure, not an API error.
-- D3 must exist as a static resource named `d3` in the org. If it doesn't, the `loadScript` call will fail silently. Coach the user to upload it: Setup → Static Resources → New → name `d3`, upload d3.min.js.
+- D3 is handled automatically by `_deploy_lwc.py` — it checks for the static resource and uploads it from CDN if missing. No manual Setup steps needed.
 
 ---
 
