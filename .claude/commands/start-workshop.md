@@ -547,9 +547,12 @@ async _initialize() {
     // IMPORTANT: only raw SDO fields work — calc measurements (e.g. Deal_Size_clc,
     // Total_Loan_Amount_clc) are model-level and cannot be addressed as Sdo.calcField.
     // Use the underlying raw SDO field (e.g. Total_Amount, loan_amount__c) instead.
+    // Dimensions: rowGrouping: true (group-by)
+    // Measures: aggregationType: "SUM" — NOT rowGrouping: false (that returns no value)
+    // Rows come back as positional arrays: row[0] = dim, row[1] = measure
     const fields = [
-        { model: `${this._sdoName}.${this._dimField}`,     rowGrouping: true  },
-        { model: `${this._sdoName}.${this._measureField}`, rowGrouping: false }
+        { model: `${this._sdoName}.${this._dimField}`,     rowGrouping: true },
+        { model: `${this._sdoName}.${this._measureField}`, aggregationType: "SUM" }
     ];
     this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
     this.sdk.fetchData();
@@ -627,7 +630,6 @@ export default class {ComponentName} extends LightningElement {
 
         // sdk.on() — NOT sdk.addEventListener() (that's the DOM API, doesn't exist on SDK)
         // dataUpdate handler receives rows as a plain array, NOT an event object
-        // Rows are positional when using model/rowGrouping format: index 0 = dim, index 1 = measure
         this._unsubscribes.push(
             this.sdk.on("filterChange", () => { this.sdk.fetchData(); })
         );
@@ -640,9 +642,11 @@ export default class {ComponentName} extends LightningElement {
 
         // Fields MUST be qualified as "SdoApiName.rawFieldApiName"
         // Calc measurements cannot be referenced here — use raw SDO fields only
+        // Dimensions: rowGrouping: true | Measures: aggregationType: "SUM"
+        // rowGrouping: false on a measure returns no value (silent empty data)
         const fields = [
-            { model: `${this._sdoName}.${this._dimField}`,     rowGrouping: true  },
-            { model: `${this._sdoName}.${this._measureField}`, rowGrouping: false }
+            { model: `${this._sdoName}.${this._dimField}`,     rowGrouping: true },
+            { model: `${this._sdoName}.${this._measureField}`, aggregationType: "SUM" }
         ];
         this.sdk.registerFieldsForQuery(fields, this._sdmName, { limit: this._queryLimit });
         this.sdk.fetchData();
@@ -655,7 +659,9 @@ export default class {ComponentName} extends LightningElement {
         const H = container.clientHeight || 300;
         if (W <= 0 || H <= 0) { setTimeout(() => this.renderChart(), 100); return; }
         const d3 = window.d3;  // loadScript puts D3 on window, not as ES module
-        // Rows are positional arrays: row[0] = dim value, row[1] = measure value
+        // Rows are positional arrays: row[0] = dim value, row[1] = aggregated measure value
+        // SDK aggregates per group — no client-side rollup needed
+        // Example: rows.map(row => ({ name: row[0], value: parseFloat(row[1]) || 0 }))
         // D3 chart code here using W, H, d3, this._data
     }
 }
