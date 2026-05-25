@@ -766,6 +766,18 @@ else:
 
 Run with: `python3 _deploy_lwc.py`
 
+**After deployment succeeds**, immediately fetch and present the list of existing dashboards so the user can choose where to add the component — do NOT ask them to open the dashboard editor manually. Use the same `_list_dashboards.py` pattern from 2d-b, then go straight to VIZ-EXT-d with their choice.
+
+> "Deployed successfully. Which dashboard would you like to add the **[component label]** to?
+>
+> 1. [Dashboard label] — [workspace]
+> 2. [Dashboard label] — [workspace]
+> 3. [Dashboard label] — [workspace]
+>
+> Reply with the number, or say **new** and I'll create a fresh dashboard for it."
+
+Wait for the user's reply before writing the dashboard update script.
+
 ---
 
 ### VIZ-EXT-d — Add to dashboard
