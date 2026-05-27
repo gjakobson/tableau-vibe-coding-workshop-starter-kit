@@ -1539,9 +1539,11 @@ def dash_viz(name, viz_api_name, viz_id):
                            "widgetStyle": CARD_STYLE},
             "source": {"id": viz_id, "name": viz_api_name}}
 
-def dash_date_filter(name, label, calc_date_dim_api, sdm_name, sdm_id, default_days=90):
+def dash_date_filter(name, label, calc_date_dim_api, sdm_name, sdm_id):
+    # No initialValues — dashboard opens with all data unfiltered so D3 extension widgets
+    # render the full dataset on first load. A pre-applied LastNDays filter fires before
+    # extensions have resolved their data, which can produce partial or single-category renders.
     return {"actions": [], "name": name, "type": "filter", "label": label,
-            "initialValues": {"details": {"fieldName": calc_date_dim_api, "operator": "LastNDays", "values": [float(default_days)]}},
             "parameters": {"filterOption": {"dataType": "Date", "fieldName": calc_date_dim_api, "selectionType": "multiple"},
                            "isLabelHidden": False,
                            "receiveFilterSource": {"filterMode": "all", "widgetIds": []},
@@ -1633,7 +1635,7 @@ widgets_dict["text_1"] = dash_text("text_1", f"{COMPANY_NAME} — {USE_CASE}", b
 page_cells.append(dash_pos("text_1", 0, 0, 36, 2))
 
 # Filters
-widgets_dict["list_1"] = dash_date_filter("list_1", "Date", "Activity_Date_clc", model_api_name, model_id)
+widgets_dict["list_1"] = dash_date_filter("list_1", "Date Range", "Activity_Date_clc", model_api_name, model_id)
 page_cells.append(dash_pos("list_1", 0, 2, 11, 2))
 # widgets_dict["toggle_1"] = dash_toggle_filter("toggle_1", "Segment", seg_field_api, fact_sdo, model_api_name, model_id)
 # page_cells.append(dash_pos("toggle_1", 12, 2, 12, 2))
