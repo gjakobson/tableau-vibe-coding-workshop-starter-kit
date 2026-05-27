@@ -1419,11 +1419,19 @@ def pane_format(field_key, decimals=2, fmt_type="Number"):
                                                                       "includeThousandSeparator": True, "negativeValuesFormat": "Auto",
                                                                       "prefix": "", "suffix": "", "type": fmt_type}}}}}
 
-def build_viz_style(axis_dict, pane_dict, reverse_range=False, dim_row_keys=None):
+def build_viz_style(axis_dict, pane_dict, reverse_range=False, dim_row_keys=None, mark_type="Circle"):
     # reverse_range=True for horizontal bar (dim on rows, measure on columns)
     # dim_row_keys: list of field keys for dims on rows shelf — each needs allHeaders.fields entry
+    # mark_type: controls size defaults — "Circle" uses 2% (minimum; larger = huge blobs),
+    #            "Bar" uses 75% (bar width), "Line" uses 2px (line thickness)
     fields_headers = {k: {"hiddenValues": [], "isVisible": True, "showMissingValues": False}
                       for k in (dim_row_keys or [])}
+    if mark_type == "Bar":
+        size = {"isAutomatic": False, "type": "Percentage", "value": 75}
+    elif mark_type == "Line":
+        size = {"isAutomatic": False, "type": "Pixel", "value": 2}
+    else:  # Circle and anything else — use minimum percentage
+        size = {"isAutomatic": False, "type": "Percentage", "value": 2}
     return {
         "allHeaders": {"columns": {"mergeRepeatedCells": True, "showIndex": False},
                        "fields": fields_headers,
@@ -1438,7 +1446,7 @@ def build_viz_style(axis_dict, pane_dict, reverse_range=False, dim_row_keys=None
                           "isStackingAxisCentered": False,
                           "label": {"canOverlapLabels": False, "marksToLabel": {"type": "All"}, "showMarkLabels": False},
                           "range": {"reverse": reverse_range},
-                          "size": {"isAutomatic": False, "type": "Pixel", "value": 4}}},
+                          "size": size}},
         "panes": pane_dict,
         "referenceLines": {},
         "shading": VIZ_SHADING,
@@ -1484,7 +1492,7 @@ pipeline_trend = create_visualization(
     sdm_name=model_api_name, workspace_name=workspace_name,
     fields_dict={"F1": calc_measure("Total_Pipeline_Value_clc", "Pipeline Value ($)"),
                  "F2": calc_dim("Activity_Date_clc", "Month", is_date=True)},
-    rows=["F1"], columns=["F2"], mark_type="Line",
+    rows=["F1"], columns=["F2"], mark_type="Circle",  # Circle = individual data points; min size=2%
     style=build_viz_style(axis_dict={**axis_number("F1", "Pipeline Value"), **axis_date("F2")},
                           pane_dict=pane_format("F1", decimals=0, fmt_type="Currency"), reverse_range=False),
 )
@@ -1497,11 +1505,20 @@ pipeline_by_region = create_visualization(
     rows=["F2"], columns=["F1"], mark_type="Bar",   # dim on rows = horizontal bar
     style=build_viz_style(axis_dict=axis_number("F1", "Pipeline Value"),
                           pane_dict=pane_format("F1", decimals=0, fmt_type="Currency"),
-                          reverse_range=True, dim_row_keys=["F2"]),
+                          reverse_range=True, dim_row_keys=["F2"], mark_type="Bar"),
 )
 ```
 
-**Confirmed working mark types**: `"Bar"`, `"Line"`, `"Area"`, `"Circle"` (scatter). `"Pie"` → rejected.
+**Confirmed working mark types**: `"Bar"`, `"Line"`, `"Area"`, `"Circle"` (scatter/individual points). `"Pie"` → rejected.
+- Use `"Circle"` for trend/time-series charts where you want individual visible data points — produces a scatter plot over time with small dots
+- Use `"Line"` only when you want a connected line without distinct individual-point markers
+- Use `"Bar"` for category breakdowns
+
+**Mark size by chart type** (goes in `style.marks.ALL.size`):
+- `"Circle"`: `{"isAutomatic": False, "type": "Percentage", "value": 2}` — use minimum (2); larger values produce huge blobs
+- `"Bar"`: `{"isAutomatic": False, "type": "Percentage", "value": 75}` — controls bar width
+- `"Line"`: `{"isAutomatic": False, "type": "Pixel", "value": 2}` — controls line thickness
+
 **Sorting**: `sortOrders` only works for `mode="Table"` — cannot sort bar/line charts via API.
 
 ---
@@ -1838,7 +1855,7 @@ Workspace: {workspace_name}
 53. **Schema PUT fields only accept `name`, `label`, `dataType`** — including `isPrimaryKey` or `isEventTime` causes `JSON_PARSER_ERROR`; declare PKs only in the stream's `dataLakeFieldInputRepresentations` (Step 5c), not in the schema PUT.
 54. **`if r:` is always False for failed responses** — use `if r is not None:` in `die()` and any error guard; `requests.Response.__bool__` returns False for 4xx/5xx, silently swallowing error details.
 55. **Visualization POST response key is `name`, not `apiName`** — use `viz_result.get("apiName") or viz_result.get("name")` when extracting the identifier from a viz creation response.
-56. **Mark `size` and `isAutomaticSize` belong in `style.marks.ALL`, not in `visualSpecification.marks.ALL`** — undocumented but accepted at v66.0. Valid size types: `"Pixel"` (absolute) and `"Percentage"` (relative, 2–100% of cell, equivalent to UI "Relative" slider). Use `"Percentage"` / `75` for bars; use `"Pixel"` / `2` for lines. `isAutomaticSize` must be present alongside `size` or API returns INVALID_INPUT. `isAutomaticSize` in `visualSpecification.marks.ALL` is silently rejected.
+56. **Mark `size` and `isAutomaticSize` belong in `style.marks.ALL`, not in `visualSpecification.marks.ALL`** — undocumented but accepted at v66.0. Valid size types: `"Pixel"` (absolute) and `"Percentage"` (relative). Percentage range is **2–200** (API returns `INVALID_VISUALIZATION_METADATA` for values outside this range — minimum is 2, not 0 or 1). Use `"Percentage"` / `2` for Circle marks (tiny dots); use `"Percentage"` / `75` for bars; use `"Pixel"` / `2` for lines. `isAutomaticSize` must be present alongside `size` or API returns INVALID_INPUT. `isAutomaticSize` in `visualSpecification.marks.ALL` is silently rejected.
 57. **Newly registered ingest schema objects return 404 from the bulk jobs endpoint for ~15–30s after DLO ACTIVE** — existing schemas are immediately ready; brand new ones need propagation time. Add retry logic with 15s backoff (up to 3 retries) on 404 in `bulk_ingest_submit()`. Existing (re-run) streams are unaffected.
 58. **CRM date fields (e.g. `Close Date`, `Created Date`) are stored as `DateTime` in the DLO, not `Date`** — the date-shift calc dimension expression will fail unless you wrap the field reference with `DATE()`: `DATE([sdo].[close_date__c])`. Always check `dataType` in the GET model response and add the `DATE()` cast for any `DateTime` field used as a time dimension.
 59. **Dashboard PATCH field-stripping rules** — `PUT` is not allowed on dashboards (405). Use `PATCH`. The full payload IS required: `label`, `name`, `description`, `workspaceIdOrApiName`, `style`, `widgets`, `layouts` — omitting `label` or `workspaceIdOrApiName` causes 500. What to strip from EXISTING widgets before sending: `id`, `status`, `label` from widget top-level; `label` and `type` from each widget's `source` object. Do NOT strip these from extension-type widgets — they have no `source` (see pitfall #60). Pattern: `GET` → `clean_widget()` each existing widget → merge in new widget(s) → `PATCH` with full payload.
