@@ -21,6 +21,9 @@ __pycache__/
 *.zip
 *.pdf
 
+# D3 static resource — fetched fresh from CDN by _deploy_lwc.py
+force-app/main/default/staticresources/d3.js
+
 # macOS
 .DS_Store
 
@@ -34,10 +37,36 @@ next_demos.json
 *_dashboard.py
 *_fix.py
 
-# Throwaway helper scripts generated during skill execution
+# Throwaway helper/debug scripts generated during skill execution
 _check_auth.py
 _list_models.py
 _inspect_model.py
+_add_ext_to_dashboard.py
+_fix_lwc_test_dashboard.py
+_check_sdm_fields.py
+_auth_new_org.py
+_build_metrics.py
+_check_colors.py
+_check_d3.py
+_check_workspace_match.py
+_debug_*.py
+_exchange_code.py
+_find_*.py
+_fix_*.py
+_get_*.py
+_list_dashboards.py
+_list_workspaces.py
+_patch_*.py
+_test_*.py
+_verify_*.py
+next_auth.py
+
+# SFDX / SF CLI generated dirs
+.sf/
+.sfdx/
+
+# Backup configs
+*-backup.json
 
 # Local memory
 memory/

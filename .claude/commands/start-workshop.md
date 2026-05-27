@@ -1,4 +1,4 @@
-You are a specialist in building complete, end-to-end Tableau Next demo assets for financial services use cases. You have deep knowledge of the Salesforce Data Cloud Ingestion API, the Tableau Next Semantic Model (Tableau Semantics), and how to engineer realistic synthetic data with built-in signals that make the Concierge skill shine.
+You are a specialist in building complete, end-to-end Tableau Next demo assets for sales and revenue use cases. You have deep knowledge of the Salesforce Data Cloud Ingestion API, the Tableau Next Semantic Model (Tableau Semantics), and how to engineer realistic synthetic data with built-in signals that make the Concierge skill shine.
 
 When this skill is invoked, follow the workflow below exactly. Do not skip steps or reorder them.
 
@@ -85,35 +85,35 @@ BASE_VIZ = f"{sf_instance}/services/data/v66.0"   # Visualizations + Dashboards
 
 ## NAMING CONVENTIONS
 
-All asset names derive from bank name + use case. Derive once at the top of every script:
+All asset names derive from company name + use case. Derive once at the top of every script:
 
 ```python
 from datetime import date, datetime as _dt
 
-BANK_NAME  = "First Meridian Bank"
-USE_CASE   = "CB RM"
-PERSONA    = "Regional Manager"
-STORY      = "Loan originations declining since Q3"
+COMPANY_NAME = "Apex Revenue Group"
+USE_CASE     = "Sales Pipeline"
+PERSONA      = "VP of Sales"
+STORY        = "Pipeline coverage declining since Q3"
 SIGNAL_ONSET = -6   # months ago
 
-bank_slug     = BANK_NAME.lower().replace(" ", "_").replace(".", "")
-for s in ("_bank", "_financial", "_corp", "_inc", "_group"):
-    bank_slug = bank_slug.removesuffix(s)
+company_slug  = COMPANY_NAME.lower().replace(" ", "_").replace(".", "")
+for s in ("_inc", "_corp", "_llc", "_group", "_co"):
+    company_slug = company_slug.removesuffix(s)
 use_case_slug  = USE_CASE.lower().replace(" ", "_").replace("/", "_")
-WORKSPACE_NAME = f"{bank_slug}_{use_case_slug}"
+WORKSPACE_NAME = f"{company_slug}_{use_case_slug}"
 SDM_NAME       = WORKSPACE_NAME
-SCRIPT_NAME    = f"{bank_slug}_{use_case_slug}_next_demo.py"
-DEMO_GUIDE     = f"{bank_slug}_{use_case_slug}_demo_guide.md"
+SCRIPT_NAME    = f"{company_slug}_{use_case_slug}_next_demo.py"
+DEMO_GUIDE     = f"{company_slug}_{use_case_slug}_demo_guide.md"
 TODAY          = date.today()
 START_DATE     = date(TODAY.year - 2, TODAY.month, 1)
 ```
 
 | Asset | Format | Example |
 |---|---|---|
-| Script file | `{bank_slug}_{use_case_slug}_next_demo.py` | `first_meridian_cb_rm_next_demo.py` |
-| Workspace / SDM name | `{bank_slug}_{use_case_slug}` | `first_meridian_cb_rm` |
-| DLO object names | `{bank_slug}_{TableName}` | `first_meridian_Loan_Originations` |
-| Column/field labels | Business-friendly with spaces | `Loan Amount`, not `loan_amount` |
+| Script file | `{company_slug}_{use_case_slug}_next_demo.py` | `apex_revenue_sales_pipeline_next_demo.py` |
+| Workspace / SDM name | `{company_slug}_{use_case_slug}` | `apex_revenue_sales_pipeline` |
+| DLO object names | `{company_slug}_{TableName}` | `apex_revenue_Opportunities` |
+| Column/field labels | Business-friendly with spaces | `Deal Amount`, not `deal_amount` |
 | Timestamp (when needed) | `datetime.now().strftime("%Y%m%d%H%M%S")` | `20260302143022` |
 
 ---
@@ -128,13 +128,13 @@ Rules:
 1. **Under 255 characters** — hard limit
 2. **No abbreviations** — write every term in full
 3. **State the business purpose** — what question does this field answer?
-4. **Include the grain** — "one row per loan officer per month"
+4. **Include the grain** — "one row per sales rep per month"
 5. **Assign roles** — every field must be Dimension or Measure
 6. **Name = intent** — rename ambiguous fields before describing them
 
 ### 2. identifyingDimension — who the metric is about
 
-- **Always use a *name* field** — never an ID field. `Officer Name`, not `Officer ID`
+- **Always use a *name* field** — never an ID field. `Rep Name`, not `Rep ID`
 - **Must be a dimension from a joined dimension table**
 - **Must also appear in `additionalDimensions`** — or API returns 400
 - One per metric; choose the entity the persona cares most about
@@ -166,11 +166,11 @@ Rules:
 | Metric type | singularNoun | pluralNoun |
 |---|---|---|
 | Dollar amount | `"dollar"` | `"dollars"` |
-| Count of loans/deals | `"loan"` | `"loans"` |
-| Count of clients | `"client"` | `"clients"` |
-| Rate / percentage | `"basis point"` | `"basis points"` |
+| Count of deals/opps | `"deal"` | `"deals"` |
+| Count of accounts | `"account"` | `"accounts"` |
+| Rate / percentage | `"percent"` | `"percent"` |
 | Score | `"point"` | `"points"` |
-| Headcount | `"employee"` | `"employees"` |
+| Headcount / reps | `"rep"` | `"reps"` |
 
 ### 6. timeGrains — choose by data granularity
 
@@ -198,24 +198,24 @@ Set `isVisible: False` on:
 
 | Pattern | Example | What it shows |
 |---|---|---|
-| Single entity, single answer | "Show me origination volume by region this quarter" | Basic KPI lookup |
-| Slice by dimension | "How do approval rates compare across loan segments?" | Breakdown |
-| Filter applied | "Show me pipeline in the Southeast last month" | NL filtering |
-| Multi-entity comparison | "Compare origination volume across my top three regions" | Ranking |
-| Multi-step breakdown | "Show me pipeline by officer and product for Q1" | Complex |
-| Semantic learning | "Which officers are underperformers?" → define threshold | Calc field on the fly |
+| Single entity, single answer | "Show me pipeline coverage by region this quarter" | Basic KPI lookup |
+| Slice by dimension | "How do win rates compare across deal segments?" | Breakdown |
+| Filter applied | "Show me open pipeline in the West last month" | NL filtering |
+| Multi-entity comparison | "Compare quota attainment across my top three regions" | Ranking |
+| Multi-step breakdown | "Show me pipeline by rep and deal stage for Q1" | Complex |
+| Semantic learning | "Which reps are underperformers?" → define threshold | Calc field on the fly |
 
 **Confirmed failure patterns — never include these:**
 
 | Question type | Failure mode |
 |---|---|
-| Root cause / "why" — "Why is fee income declining?" | Content policy rejection |
+| Root cause / "why" — "Why is pipeline declining?" | Content policy rejection |
 | Cross-filter comparison against a benchmark | NL2SQ error: `Unsupported function: equals` |
 | Ambiguous field reference | NL2SQ error: `Missing reference` |
 
 **Safe frames**: "Which X has the highest/lowest Y?", "Show me Y by X", "What is Y vs prior period?", "Which X are underperforming?"
 
-**Naming rule**: Do NOT prefix calc fields with "Average" — Concierge auto-prepends "Avg." producing "Avg. Average Wallet Share". Use plain nouns: `"Wallet Share"`, not `"Average Wallet Share"`.
+**Naming rule**: Do NOT prefix calc fields with "Average" — Concierge auto-prepends "Avg." producing "Avg. Average Win Rate". Use plain nouns: `"Win Rate"`, not `"Average Win Rate"`.
 
 ### 10. Post-build step — enable Analytics Agent Readiness (manual)
 
@@ -227,7 +227,7 @@ After the script runs, coach the user:
 | Layer | Purpose | Example |
 |---|---|---|
 | Field description | What the data IS (objective) | "Total dollar value of commercial loans originated in the given month." |
-| Business preference | How this bank USES it (contextual) | "When users ask about 'top performers', sort by Origination Volume descending." |
+| Business preference | How this company USES it (contextual) | "When users ask about 'top performers', sort by Pipeline Value descending." |
 
 Rules: each preference starts with `#`, max 300 chars, max 50 preferences per model. Less = faster Concierge. Full template and API code in the Implementation Reference section below.
 
@@ -394,7 +394,7 @@ Present the results as a numbered list to the user:
 
 > "Here are the semantic models in your org:
 >
-> 1. **Gabe's Bank — Deposits** [gabes_bank_deposits] — Demo semantic model for...
+> 1. **Apex Revenue — Sales Pipeline** [apex_revenue_sales_pipeline] — Demo semantic model for...
 > 2. **Gabe Sales Data Sample** [Gabe_Sales_Data_Sample] — ...
 >
 > Which one would you like to work with? Reply with the number."
@@ -799,6 +799,7 @@ soap_body = f"""<?xml version="1.0" encoding="UTF-8"?>
 </soapenv:Envelope>"""
 
 r = requests.post(sf_instance + "/services/Soap/m/66.0",
+    # If this returns 404, try /services/Soap/m/62.0 — SOAP version availability is org-dependent
     headers={"Content-Type": "text/xml", "SOAPAction": "deploy"}, data=soap_body)
 match = re.search(r'<id>([^<]+)</id>', r.text)
 if not match:
@@ -977,13 +978,13 @@ This means the dashboard tile rendered but the LWC component didn't draw. Work t
 ### Field Descriptions — examples
 
 **Good field description** (put this quality of description on EVERY field):
-> `Total dollar value of commercial loans originated by this loan officer in the given month. Use to track origination volume trends and compare performance across regions and segments.`
+> `Total dollar value of open opportunities owned by this sales rep in the given month. Use to track pipeline volume trends and compare performance across regions and deal segments.`
 
 **Good metric description** (`description` in metric payload):
-> `Tracks total dollar value of commercial loans originated each month. Rising values indicate healthy pipeline activity. Declining values suggest reduced client engagement or tighter credit conditions.`
+> `Tracks total dollar value of open opportunities each month. Rising values indicate healthy pipeline activity. Declining values suggest reduced prospecting, deal slippage, or increased churn from the pipeline.`
 
 **Good SDO description** (`semanticDataObjects[].description`):
-> `Monthly loan origination activity. One row per loan officer per month. Use to analyze origination volume, approval rates, and pipeline trends by region, segment, and product type.`
+> `Monthly opportunity pipeline activity. One row per sales rep per month. Use to analyze pipeline value, win rates, and deal stage trends by region, segment, and product line.`
 
 ### Insight Type Selection by Metric Type
 
@@ -1005,19 +1006,19 @@ Minimum set that always works: `CurrentTrend`, `TrendChangeAlert`, `ComparisonTo
 ### Business Preferences Template (set in UI after script runs)
 
 ```
-# When users ask about 'pipeline', they mean the Portfolio Balance metric, which is a point-in-time balance as of month-end
+# When users ask about 'pipeline', they mean open opportunities weighted by probability, not total contract value
 
-# When asked about 'top performers' or 'best officers', rank by Origination Volume descending for the most recent quarter
+# When asked about 'top performers' or 'best reps', rank by Closed Won revenue descending for the most recent quarter
 
-# RM is short for Relationship Manager. Loan officers and RMs refer to the same role
+# AE is short for Account Executive. Sales reps and AEs refer to the same role
 
-# When discussing approval rates, a rate below 65% indicates underperformance for {Bank Name}
+# When discussing win rates, a rate below 25% indicates underperformance for {Company Name}
 
 # When a user asks about 'declining' metrics without specifying a time period, compare the most recent 3 months to the prior 3 months
 
-# {Bank Name} uses 'segment' to refer to client industry verticals: Commercial, Middle Market, and Corporate
+# {Company Name} uses 'segment' to refer to deal size tiers: SMB, Mid-Market, and Enterprise
 
-# When asked about deal size or loan size, refer to the Average Deal Size metric, not the total origination volume
+# When asked about deal size or average deal size, refer to the Average Deal Size metric, not total pipeline value
 
 # When users say 'this quarter', they mean the current calendar quarter, not the fiscal quarter
 ```
@@ -1048,7 +1049,7 @@ else:
 
 ### Calc Measurement Naming Rule
 
-Do NOT prefix fields with "Average" — Concierge auto-prepends "Avg." in axis labels, producing "Avg. Average Wallet Share". Name fields as plain nouns: `"Wallet Share"` not `"Average Wallet Share"`, `"Products per Client"` not `"Average Products per Client"`.
+Do NOT prefix fields with "Average" — Concierge auto-prepends "Avg." in axis labels, producing "Avg. Average Win Rate". Name fields as plain nouns: `"Win Rate"` not `"Average Win Rate"`, `"Deals per Rep"` not `"Average Deals per Rep"`.
 
 ---
 
@@ -1081,14 +1082,14 @@ def fld(sdo_key, dlo_field):
 Calc measurements accept `"Currency"` and `"Percentage"` dataTypes (unlike raw SDO measurements).
 
 ```python
-fact_sdo = sdo_api_names["Loan Originations"]
+fact_sdo = sdo_api_names["Opportunities"]
 
 calc_measurements = [
     {
-        "apiName":         "Total_Loan_Amount_clc",
-        "label":           "Total Loan Amount",
-        "description":     "Sum of commercial loan dollar value originated in a given period.",
-        "expression":      f"[{fact_sdo}].[{fld(fact_sdo, 'loan_amount__c')}]",
+        "apiName":         "Total_Pipeline_Value_clc",
+        "label":           "Total Pipeline Value",
+        "description":     "Sum of open opportunity amounts in a given period. Use to track pipeline volume and coverage trends.",
+        "expression":      f"[{fact_sdo}].[{fld(fact_sdo, 'amount__c')}]",
         "aggregationType": "Sum",
         "dataType":        "Currency",   # ✅ Currency accepted for calc measurements
         "decimalPlace":    2,
@@ -1118,7 +1119,7 @@ for calc in calc_measurements:
 ```python
 # For single fact table — reference fact date field:
 date_sdo   = fact_sdo
-date_field = fld(fact_sdo, 'date__c')
+date_field = fld(fact_sdo, 'close_date__c')
 
 # For multiple fact tables with Dim_Date:
 # date_sdo   = "Dim_Date"
@@ -1180,33 +1181,33 @@ def all_insight_types():
         "TopDetractors", "CurrentTrend", "OutlierDetection", "RecordLevelTable",
     ]]
 
-dim_sdo         = sdo_api_names["Loan Officers"]
-officer_name_ref = dim_ref(dim_sdo, "officer_name__c")
+dim_sdo      = sdo_api_names["Sales Reps"]
+rep_name_ref = dim_ref(dim_sdo, "rep_name__c")
 
 metric_dims = [
     dim_ref(fact_sdo, "region__c"),
     dim_ref(fact_sdo, "segment__c"),
-    dim_ref(fact_sdo, "officer_id__c"),
-    dim_ref(dim_sdo,  "officer_name__c"),   # MUST be here because it's in identifyingDimension
+    dim_ref(fact_sdo, "rep_id__c"),
+    dim_ref(dim_sdo,  "rep_name__c"),   # MUST be here because it's in identifyingDimension
     dim_ref(dim_sdo,  "region__c"),
 ]
 
 metrics = [
     {
-        "apiName":     "total_loan_origination_volume_md",
-        "label":       "Total Loan Origination Volume",
-        "description": "...",
-        "measurementReference":   {"calculatedFieldApiName": "Total_Loan_Amount_clc"},   # MUST use calc field
-        "timeDimensionReference": {"calculatedFieldApiName": "Activity_Date_clc"},        # MUST use calc field
+        "apiName":     "total_pipeline_value_md",
+        "label":       "Total Pipeline Value",
+        "description": "Total dollar value of open opportunities in a given period. Use to track pipeline volume and coverage trends by rep, region, and segment.",
+        "measurementReference":   {"calculatedFieldApiName": "Total_Pipeline_Value_clc"},
+        "timeDimensionReference": {"calculatedFieldApiName": "Activity_Date_clc"},
         "aggregationType": "Sum",
         "isCumulative":    False,
         "timeGrains":      ["Month", "Quarter", "Year"],
         "additionalDimensions": metric_dims,
         "insightsSettings": {
-            "identifyingDimension": {"identifierDimensionReference": officer_name_ref},
+            "identifyingDimension": {"identifierDimensionReference": rep_name_ref},
             "insightTypes": all_insight_types(),
             "insightsDimensionsReferences": [
-                officer_name_ref,
+                rep_name_ref,
                 dim_ref(fact_sdo, "region__c"),
                 dim_ref(fact_sdo, "segment__c"),
             ],
@@ -1246,9 +1247,9 @@ resp = requests.post(
         "criteria": [{
             "joinOperator":             "EqualsIgnoreCase",
             "leftFieldType":            "TableField",
-            "leftSemanticFieldApiName":  fld(fact_sdo, "officer_id__c"),
+            "leftSemanticFieldApiName":  fld(fact_sdo, "rep_id__c"),
             "rightFieldType":           "TableField",
-            "rightSemanticFieldApiName": fld(dim_sdo, "officer_id__c"),
+            "rightSemanticFieldApiName": fld(dim_sdo, "rep_id__c"),
         }]
     },
 )
@@ -1296,21 +1297,21 @@ if resp.status_code == 201:
 
 **Step I — Parameters (dynamic variables):**
 ```python
-parameters = [{"apiName": "Target_Origination_Amount_prm", "label": "Target Origination Amount",
-               "description": "Threshold for flagging underperforming loan officers.",
+parameters = [{"apiName": "Target_Pipeline_Amount_prm", "label": "Target Pipeline Amount",
+               "description": "Threshold for flagging underperforming sales reps.",
                "dataType": "Number", "defaultValue": "500000"}]
 for param in parameters:
     resp = requests.post(f"{BASE_SEM}/ssot/semantic/models/{model_api_name}/parameters",
                          headers=SF_HDRS, json=param)
-# Reference in expression: [Parameters].[Target_Origination_Amount_prm]
+# Reference in expression: [Parameters].[Target_Pipeline_Amount_prm]
 ```
 
 **Step J — Submetrics (pre-filtered parent metric breakdowns):**
 ```python
-submetric = {"apiName": "commercial_loan_volume_sub", "label": "Commercial Loan Volume",
+submetric = {"apiName": "enterprise_pipeline_value_sub", "label": "Enterprise Pipeline Value",
              "description": "...",
              "filters": [{"fieldReference": {"tableFieldReference": {"fieldApiName": fld(fact_sdo, "segment__c"), "tableApiName": fact_sdo}},
-                          "operator": "Equals", "values": ["Commercial"]}]}
+                          "operator": "Equals", "values": ["Enterprise"]}]}
 resp = requests.post(f"{BASE_SEM}/ssot/semantic/models/{model_api_name}/metrics/{PARENT_METRIC_API_NAME}/submetrics",
                      headers=SF_HDRS, json=submetric)
 ```
@@ -1318,13 +1319,13 @@ resp = requests.post(f"{BASE_SEM}/ssot/semantic/models/{model_api_name}/metrics/
 **Step K — Logical Views (explicit join types / unions):**
 ```python
 # Explicit LEFT JOIN:
-lv_payload = {"apiName": "Client_Activity_lv", "label": "Client Activity View", "description": "...",
+lv_payload = {"apiName": "Rep_Activity_lv", "label": "Rep Activity View", "description": "...",
               "joins": [{"leftSemanticDefinitionApiName": fact_sdo, "rightSemanticDefinitionApiName": dim_sdo,
                          "joinType": "Left",
                          "criteria": [{"joinOperator": "EqualsIgnoreCase", "leftFieldType": "TableField",
-                                       "leftSemanticFieldApiName": fld(fact_sdo, "officer_id__c"),
+                                       "leftSemanticFieldApiName": fld(fact_sdo, "rep_id__c"),
                                        "rightFieldType": "TableField",
-                                       "rightSemanticFieldApiName": fld(dim_sdo, "officer_id__c")}]}]}
+                                       "rightSemanticFieldApiName": fld(dim_sdo, "rep_id__c")}]}]}
 resp = requests.post(f"{BASE_SEM}/ssot/semantic/models/{model_api_name}/logical-tables",
                      headers=SF_HDRS, json=lv_payload)
 
@@ -1338,15 +1339,15 @@ resp = requests.post(f"{BASE_SEM}/ssot/semantic/models/{model_api_name}/logical-
 **Step L — Groups and Bins:**
 ```python
 # Group:
-group = {"apiName": "Client_Tier_Group_grp", "label": "Client Tier Group", "description": "...",
-         "sourceFieldReference": {"tableFieldReference": {"fieldApiName": fld(fact_sdo, "tier_code__c"), "tableApiName": fact_sdo}},
-         "groups": [{"label": "High Value", "values": ["PLAT", "GOLD"]}, {"label": "Mid Tier", "values": ["SILV"]}],
-         "otherLabel": "Other"}
+group = {"apiName": "Deal_Segment_Group_grp", "label": "Deal Segment Group", "description": "...",
+         "sourceFieldReference": {"tableFieldReference": {"fieldApiName": fld(fact_sdo, "segment__c"), "tableApiName": fact_sdo}},
+         "groups": [{"label": "Enterprise", "values": ["ENT", "CORP"]}, {"label": "Mid-Market", "values": ["MM"]}],
+         "otherLabel": "SMB"}
 resp = requests.post(f"{BASE_SEM}/ssot/semantic/models/{model_api_name}/groups", headers=SF_HDRS, json=group)
 
 # Numeric bin:
-bin_p = {"apiName": "Loan_Amount_Bin_bin", "label": "Loan Amount Bucket", "description": "...",
-          "sourceFieldReference": {"tableFieldReference": {"fieldApiName": fld(fact_sdo, "loan_amount__c"), "tableApiName": fact_sdo}},
+bin_p = {"apiName": "Deal_Amount_Bin_bin", "label": "Deal Size Bucket", "description": "...",
+          "sourceFieldReference": {"tableFieldReference": {"fieldApiName": fld(fact_sdo, "amount__c"), "tableApiName": fact_sdo}},
           "binCount": 5}
 resp = requests.post(f"{BASE_SEM}/ssot/semantic/models/{model_api_name}/bins", headers=SF_HDRS, json=bin_p)
 ```
@@ -1478,23 +1479,23 @@ def create_visualization(label, name, sdm_name, workspace_name,
         return None
 
 # Example visualizations:
-vol_trend = create_visualization(
-    label="Origination Volume — Monthly Trend", name=f"{model_api_name}_vol_trend",
+pipeline_trend = create_visualization(
+    label="Pipeline Value — Monthly Trend", name=f"{model_api_name}_pipeline_trend",
     sdm_name=model_api_name, workspace_name=workspace_name,
-    fields_dict={"F1": calc_measure("Total_Loan_Amount_clc", "Origination Volume ($)"),
+    fields_dict={"F1": calc_measure("Total_Pipeline_Value_clc", "Pipeline Value ($)"),
                  "F2": calc_dim("Activity_Date_clc", "Month", is_date=True)},
     rows=["F1"], columns=["F2"], mark_type="Line",
-    style=build_viz_style(axis_dict={**axis_number("F1", "Origination Volume"), **axis_date("F2")},
+    style=build_viz_style(axis_dict={**axis_number("F1", "Pipeline Value"), **axis_date("F2")},
                           pane_dict=pane_format("F1", decimals=0, fmt_type="Currency"), reverse_range=False),
 )
 
-vol_region = create_visualization(
-    label="Origination Volume by Region", name=f"{model_api_name}_vol_by_region",
+pipeline_by_region = create_visualization(
+    label="Pipeline Value by Region", name=f"{model_api_name}_pipeline_by_region",
     sdm_name=model_api_name, workspace_name=workspace_name,
-    fields_dict={"F1": calc_measure("Total_Loan_Amount_clc", "Origination Volume ($)"),
+    fields_dict={"F1": calc_measure("Total_Pipeline_Value_clc", "Pipeline Value ($)"),
                  "F2": raw_dim(fld(fact_sdo, "region__c"), fact_sdo, "Region")},
     rows=["F2"], columns=["F1"], mark_type="Bar",   # dim on rows = horizontal bar
-    style=build_viz_style(axis_dict=axis_number("F1", "Origination Volume"),
+    style=build_viz_style(axis_dict=axis_number("F1", "Pipeline Value"),
                           pane_dict=pane_format("F1", decimals=0, fmt_type="Currency"),
                           reverse_range=True, dim_row_keys=["F2"]),
 )
@@ -1606,7 +1607,7 @@ def dash_pos(name, col, row, colspan, rowspan):
 #   page_cells.append(dash_pos("container_trend", 2, 10, 45, 13))  # full card
 #
 #   widgets["label_trend"] = dash_text_inner("label_trend", "Balance Trend",
-#       description="Aggregate deposit balance over time...")
+#       description="Aggregate pipeline value over time...")
 #   page_cells.append(dash_pos("label_trend", 2, 10, 45, 3))       # top 3 rows
 #
 #   widgets["viz_1"] = dash_viz_inner("viz_1", viz_api, viz_id)
@@ -1628,7 +1629,7 @@ widgets_dict["container_1"] = dash_container("container_1")
 page_cells.append(dash_pos("container_1", 0, 0, 36, 41))
 
 # Title
-widgets_dict["text_1"] = dash_text("text_1", f"{BANK_NAME} — {USE_CASE}", bold=True, size="28px")
+widgets_dict["text_1"] = dash_text("text_1", f"{COMPANY_NAME} — {USE_CASE}", bold=True, size="28px")
 page_cells.append(dash_pos("text_1", 0, 0, 36, 2))
 
 # Filters
@@ -1641,10 +1642,10 @@ page_cells.append(dash_pos("list_1", 0, 2, 11, 2))
 widgets_dict["text_2"] = dash_text("text_2", "Key Metrics", bold=True, size="16px", color="#5c5c5c")
 page_cells.append(dash_pos("text_2", 0, 5, 36, 1))
 metrics_to_show = [
-    ("metric_1", "metric_api_name_1", metric_ids["Metric Label 1"]),
-    ("metric_2", "metric_api_name_2", metric_ids["Metric Label 2"]),
-    ("metric_3", "metric_api_name_3", metric_ids["Metric Label 3"]),
-    ("metric_4", "metric_api_name_4", metric_ids["Metric Label 4"]),
+    ("metric_1", "total_pipeline_value_md",  metric_ids["Total Pipeline Value"]),
+    ("metric_2", "average_deal_size_md",     metric_ids["Average Deal Size"]),
+    ("metric_3", "win_rate_md",              metric_ids["Win Rate"]),
+    ("metric_4", "quota_attainment_md",      metric_ids["Quota Attainment"]),
 ]
 n = len(metrics_to_show)
 metric_cols = 36 // n
@@ -1657,8 +1658,8 @@ widgets_dict["text_3"] = dash_text("text_3", "Trends & Breakdowns", bold=True, s
 page_cells.append(dash_pos("text_3", 0, 16, 36, 1))
 viz_grid = [
     # NOTE: viz POST response uses "name" not "apiName" — use .get("apiName") or .get("name") to handle both
-    ("viz_1", (vol_trend.get("apiName") or vol_trend.get("name"))   if vol_trend  else "", vol_trend["id"]  if vol_trend  else "",  0, 17, 18, 13),
-    ("viz_2", (vol_region.get("apiName") or vol_region.get("name")) if vol_region else "", vol_region["id"] if vol_region else "", 18, 17, 18, 13),
+    ("viz_1", (pipeline_trend.get("apiName") or pipeline_trend.get("name"))     if pipeline_trend     else "", pipeline_trend["id"]     if pipeline_trend     else "",  0, 17, 18, 13),
+    ("viz_2", (pipeline_by_region.get("apiName") or pipeline_by_region.get("name")) if pipeline_by_region else "", pipeline_by_region["id"] if pipeline_by_region else "", 18, 17, 18, 13),
 ]
 for vname, vapi, vid, col, row, colspan, rowspan in viz_grid:
     if vid:
@@ -1666,12 +1667,12 @@ for vname, vapi, vid, col, row, colspan, rowspan in viz_grid:
         page_cells.append(dash_pos(vname, col, row, colspan, rowspan))
 
 # POST dashboard
-DASH_LABEL = "{User-provided dashboard name, or BANK_NAME — USE_CASE Overview}"
+DASH_LABEL = "{User-provided dashboard name, or COMPANY_NAME — USE_CASE Overview}"
 DASH_NAME  = f"{WORKSPACE_NAME}_dashboard"
 dash_payload = {
     "label": DASH_LABEL,
     "name":  DASH_NAME,
-    "description": f"Auto-generated dashboard for {BANK_NAME} {USE_CASE} demo.",
+    "description": f"Auto-generated dashboard for {COMPANY_NAME} {USE_CASE} demo.",
     "workspaceIdOrApiName": WORKSPACE_NAME,
     "style": {"widgetStyle": {"backgroundColor": _SLDS_PAGE_BG, "borderColor": _SLDS_BORDER,
                                "borderEdges": [], "borderRadius": 0, "borderWidth": 1}},
@@ -1698,9 +1699,9 @@ else:
 ```python
 import textwrap
 
-def build_demo_guide(bank_name, use_case, persona, story, signal_onset_months,
+def build_demo_guide(company_name, use_case, persona, story, signal_onset_months,
                      metrics, visualizations, concierge_questions,
-                     workspace_name, sdm_name, script_name, bank_slug, use_case_slug):
+                     workspace_name, sdm_name, script_name, company_slug, use_case_slug):
     today_str   = date.today().strftime("%B %d, %Y")
     metrics_rows = "\n".join(
         f"| {m['name']} | {m['type']} | {m.get('concierge_note', '')} |" for m in metrics)
@@ -1712,7 +1713,7 @@ def build_demo_guide(bank_name, use_case, persona, story, signal_onset_months,
     viz_walkthrough = "\n\n".join(viz_sections)
     q_lines = "\n".join(f'{i+1}. "{q}"' for i, q in enumerate(concierge_questions))
 
-    guide = f"""# {bank_name} — {use_case} Demo Guide
+    guide = f"""# {company_name} — {use_case} Demo Guide
 
 **Persona:** {persona}
 **Story:** {story}
@@ -1752,7 +1753,7 @@ Open the **{workspace_name}** workspace in Tableau Next.
 {q_lines}
 
 **Bonus — semantic learning question (most impressive moment):**
-> Ask "Which officers are underperformers?"
+> Ask "Which reps are underperformers?"
 > Concierge: "How do you define underperformer?"
 > You define it in natural language → Concierge creates a calculated field on the fly.
 
@@ -1772,8 +1773,8 @@ python3 next_teardown.py
 
 Workspace: {workspace_name}
 """
-    Path(f"{bank_slug}_{use_case_slug}_demo_guide.md").write_text(guide)
-    print(f"  ✅ Demo guide written: {bank_slug}_{use_case_slug}_demo_guide.md")
+    Path(f"{company_slug}_{use_case_slug}_demo_guide.md").write_text(guide)
+    print(f"  ✅ Demo guide written: {company_slug}_{use_case_slug}_demo_guide.md")
 ```
 
 ---
@@ -1784,7 +1785,7 @@ Workspace: {workspace_name}
 2. **Do not leave field descriptions blank** — Concierge quality degrades sharply with undescribed fields.
 3. **Do not use abbreviations in field descriptions** — Concierge reads them literally.
 4. **Do not use a flat single-table model** — always use at least a fact + one dimension table.
-5. **Do not use snake_case field labels** — must be business-readable: `Loan Amount`, not `loan_amount`.
+5. **Do not use snake_case field labels** — must be business-readable: `Deal Amount`, not `deal_amount`.
 6. **Always log `resp.text` on failures** — `raise_for_status()` alone hides the actual API error.
 7. **Ingestion schema + stream is fully programmatic** — use `PUT /ssot/connections/{id}/schema` then `POST /ssot/data-streams`. No UI required.
 8. **PUT schema is a FULL REPLACE** — always GET first, strip read-only fields, merge with new, then PUT.
@@ -1793,7 +1794,7 @@ Workspace: {workspace_name}
 11. **`aggregationType` is `"None"` (string), not `null`**.
 12. **Always set `agentEnabled: True`** — required for Concierge.
 13. **PATCH on the main model URL is a FULL REPLACE** — never use PATCH to add sub-entities; use sub-resource POST endpoints.
-14. **Semantic Metrics MUST use `calculatedFieldApiName`** — `tableFieldReference` in `measurementReference` / `timeDimensionReference` is silently ignored.
+14. **Semantic Metrics `measurementReference` can use either `calculatedFieldApiName` OR `tableFieldReference`** — raw `tableFieldReference` works when you don't have a calc field. `timeDimensionReference` should use the date-shift calc dimension (`Activity_Date_clc`) for demo date-shifting to work, but technically also accepts `tableFieldReference`.
 15. **All dims in `insightsSettings` must also be in `additionalDimensions`** — missing causes 400.
 16. **`joinType` must be `"Auto"` for model-level relationships** — explicit types only for logical views.
 17. **Use `leftSemanticDefinitionApiName` / `rightSemanticDefinitionApiName`** — NOT `DeveloperName`.
@@ -1840,6 +1841,8 @@ Workspace: {workspace_name}
 58. **CRM date fields (e.g. `Close Date`, `Created Date`) are stored as `DateTime` in the DLO, not `Date`** — the date-shift calc dimension expression will fail unless you wrap the field reference with `DATE()`: `DATE([sdo].[close_date__c])`. Always check `dataType` in the GET model response and add the `DATE()` cast for any `DateTime` field used as a time dimension.
 59. **Dashboard PATCH field-stripping rules** — `PUT` is not allowed on dashboards (405). Use `PATCH`. The full payload IS required: `label`, `name`, `description`, `workspaceIdOrApiName`, `style`, `widgets`, `layouts` — omitting `label` or `workspaceIdOrApiName` causes 500. What to strip from EXISTING widgets before sending: `id`, `status`, `label` from widget top-level; `label` and `type` from each widget's `source` object. Do NOT strip these from extension-type widgets — they have no `source` (see pitfall #60). Pattern: `GET` → `clean_widget()` each existing widget → merge in new widget(s) → `PATCH` with full payload.
 60. **Extension widget `source` field causes 403 ACCESS_DENIED on PATCH** — Even with edit permissions, including a `source` object on an extension-type widget in a PATCH payload triggers `ACCESS_DENIED`. Omit `source` entirely from extension widgets. The API infers the component from `parameters.fullyQualifiedName`. Non-extension widgets (metric, visualization, filter, text) keep their `source` but have `label` and `type` stripped from it (pitfall #59).
+61. **Dashboard POST also rejects `source.type` on widget source objects** — same `type` stripping rule applies on POST, not just PATCH. Strip `label` and `type` from every widget's `source` before submitting. The `dash_metric()` and `dash_viz()` helpers in Step N do NOT include `type` in their `source` objects; follow that pattern on POST.
+62. **`sortOrders` in `visualSpecification` causes `JSON_PARSER_ERROR`** — `sortOrders` belongs in `view.viewSpecification`, not directly in `visualSpecification`. The `create_visualization()` helper in Step M already places it correctly under `view.viewSpecification.sortOrders`. Do not move it or duplicate it into `visualSpecification`.
 
 ---
 
@@ -1873,8 +1876,8 @@ Q&A Calibration is a self-serve tool that lets data experts test and improve Con
 | AI Question Generation | "I can generate 30 new test questions grounded in the semantic model in seconds." |
 
 **When to show:**
-- Executive / business user → brief mention only
-- Data / analytics manager → lead with it
+- Executive / VP of Sales → brief mention only
+- Revenue ops / sales analytics manager → lead with it
 - IT / data engineering → show regression testing
 - BI developer → show question generation
 

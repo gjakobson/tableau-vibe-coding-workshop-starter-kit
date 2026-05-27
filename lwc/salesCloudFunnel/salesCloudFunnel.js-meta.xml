@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Sales Cloud Pipeline Funnel</masterLabel>
+    <targets>
+        <target>analytics__Dashboard</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="analytics__Dashboard">
+            <property name="sdmName"      type="String"  label="Semantic Model Name" default="New_Semantic_Model_818" />
+            <property name="sdoName"      type="String"  label="SDO Name"            default="Opportunity1" />
+            <property name="dimField"     type="String"  label="Stage Field"         default="Opportunity_Stage1" />
+            <property name="measureField" type="String"  label="Amount Field"        default="Total_Amount" />
+            <property name="queryLimit"   type="Integer" label="Query Limit"         default="500" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>analytics__Dashboard</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="analytics__Dashboard">
+            <property name="sdmName"    type="String" label="Semantic Model API Name" default="New_Semantic_Model_4eb"/>
+            <property name="sdoName"    type="String" label="SDO API Name"             default="Opportunity1"/>
+            <property name="queryLimit" type="Integer" label="Query Limit"             default="500"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
