@@ -319,14 +319,15 @@ Then proceed to STEP 2-DISCOVER.
 
 > "Before we get started, I need your Salesforce and Data Cloud connection details. You'll only need to enter these once."
 
-Ask for:
-- A friendly name for this org (e.g., "Workshop Org", "My Sandbox")
-- Salesforce login URL (default: `https://login.salesforce.com`)
-- Connected App client ID (consumer key)
-- Connected App client secret (consumer secret)
-- Refresh token (from OAuth authorization — run `next_auth.py` if needed)
-- Data Cloud domain (the `*.c360a.salesforce.com` domain from Data Cloud Setup)
-- Data Cloud ingestion connector name (short name, e.g. `tableau_next_demo`)
+Ask for the following. Include these hints exactly so participants know what to expect:
+
+1. **Friendly org name** — a short label for this org, e.g. `"Workshop Org"` or your own name
+2. **Salesforce login URL** — this is your org's **My Domain URL**, not the generic login page. It looks like `https://orgfarm-xxxxxxxxxx.my.salesforce.com`. Find it in Setup → My Domain, or copy it from your browser's address bar when logged in.
+3. **Connected App Client ID** — the **Consumer Key** from your Connected App. It's a long alphanumeric string (~100 chars).
+4. **Connected App Client Secret** — the **Consumer Secret** from your Connected App. It's a 64-character hex string.
+5. **Refresh token** — generated when you authorized the Connected App via OAuth. Run `python3 next_auth.py` if you haven't done this yet — it will open a browser and capture the token automatically.
+6. **Data Cloud domain** — your org's Data Cloud instance URL, without `https://`. It looks like `m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com`. Find it in Setup → Data Cloud → Data Cloud Setup.
+7. **Ingestion connector name** — use `tableau_vibe_workshop` (this is the standard name for this workshop; only change it if your org uses a different connector).
 
 Connected App must have scopes: `cdp_ingest_api`, `cdp_query_api`, `full` or `api`, `sfap_api`.
 
@@ -335,12 +336,12 @@ Save as `next_orgs.json`:
 {
   "orgs": {
     "{Friendly Name}": {
-      "sf_login_url": "https://login.salesforce.com",
-      "client_id": "<consumer key>",
-      "client_secret": "<consumer secret>",
-      "refresh_token": "<OAuth refresh token>",
-      "data_cloud_domain": "<your-dc-domain (no https://)>",
-      "ingestion_connector_name": "tableau_next_demo",
+      "sf_login_url": "https://orgfarm-xxxxxxxxxx.my.salesforce.com",
+      "client_id": "<~100-char Consumer Key>",
+      "client_secret": "<64-char hex Consumer Secret>",
+      "refresh_token": "<OAuth refresh token from next_auth.py>",
+      "data_cloud_domain": "m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com",
+      "ingestion_connector_name": "tableau_vibe_workshop",
       "connector_sf_id": ""
     }
   }
