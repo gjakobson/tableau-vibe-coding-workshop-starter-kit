@@ -317,7 +317,7 @@ Then proceed to STEP 2-DISCOVER.
 
 ### 1c — Collect credentials (only if no file exists or auth failed)
 
-> "Before we get started, I need your Salesforce and Data Cloud connection details. You'll only need to enter these once."
+> "No credentials file was found. Before we can set up your workshop, I need your Salesforce connection details. You'll only need to enter these once."
 
 Ask for the following. Include these hints exactly so participants know what to expect:
 
