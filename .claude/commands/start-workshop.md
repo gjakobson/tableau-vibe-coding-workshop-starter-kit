@@ -317,10 +317,10 @@ Then proceed to STEP 2-DISCOVER.
 
 ### 1c — Collect credentials (only if no file exists or auth failed)
 
-> "Before I build your demo, I need your Salesforce and Data Cloud connection details. You'll only need to enter these once."
+> "Before we get started, I need your Salesforce and Data Cloud connection details. You'll only need to enter these once."
 
 Ask for:
-- A friendly name for this org (e.g., "Demo Shared Org", "First Meridian Sandbox")
+- A friendly name for this org (e.g., "Workshop Org", "My Sandbox")
 - Salesforce login URL (default: `https://login.salesforce.com`)
 - Connected App client ID (consumer key)
 - Connected App client secret (consumer secret)
