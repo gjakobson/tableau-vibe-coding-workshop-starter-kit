@@ -1593,36 +1593,48 @@ Actions that fire on mark click live in `interactions`, **not** `actions`. The `
 
 ---
 
-### Design rule — uniquely selectable dimensions (applies to BOTH action types)
+### Design rule — field placement differs by action type
 
-Any time the user asks to "call a rep", "log a call", "assign a task", or act on a specific Salesforce record:
-
-- **Display names go on the rows shelf** — put `Full_Name` (or equivalent) on rows so bars are human-readable.
-- **The Salesforce record ID goes in Detail** — add the SF ID field (e.g. `User_Id`, `Opportunity_Id1`) as an extra field in the `fields` dict but do NOT add it to `rows` or `columns`. It stays off the visual but is available as `recordId` (for `recordaction`) or via `{{substitution}}` (for `navigate`).
-- **Names alone are never sufficient** — they are not unique across orgs. Always pair display name + SF ID.
+**`recordaction` (Log a Call, New Task, Send Email):**
+- The **SF record ID must be on the rows shelf** — the platform resolves the clicked record from the mark's row data. A Detail-only ID field is not in that context.
+- Bars will display raw SF IDs (e.g. `005aj000...`). Add the display name as a Detail field so it shows in the tooltip.
+- Both `field.fieldKey` and `recordId.fieldKey` point to the same ID field.
 
 ```python
-# Field layout for any call/task action on a rep:
+# recordaction field layout — SF ID on rows:
 "fields": {
     "F1": {"type": "Field", "fieldName": "Win_Rate_clc", "function": "Avg",
            "role": "Measure", "displayCategory": "Continuous", "label": "Win Rate"},
-    "F2": {"type": "Field", "fieldName": "Full_Name", "objectName": "User",
-           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep Name"},
-    "F3": {"type": "Field", "fieldName": "User_Id", "objectName": "User",
-           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep ID"},
-    # F3 is Detail only — NOT in rows or columns
+    "F2": {"type": "Field", "fieldName": "User_Id", "objectName": "User",
+           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep"},   # rows shelf
+    "F3": {"type": "Field", "fieldName": "Full_Name", "objectName": "User",
+           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep Name"},  # Detail/tooltip
 },
-"rows": ["F2"],     # Full Name: human-readable bar labels
-"columns": ["F1"],  # measure
-# F3 (User_Id) is in fields but not on any shelf — available as recordId / {{User_Id}}
+"rows": ["F2"],     # User_Id on rows — required for recordId resolution
+"columns": ["F1"],
+# F3 NOT in rows or columns — tooltip only
 ```
 
-Entity reference:
-| Entity | rows shelf | Detail (ID) field |
+**`navigate` (open URL, list view, record page):**
+- Display name can go on rows (human-readable bars).
+- SF ID goes in Detail (not on any shelf) — available via `{{User_Id}}` substitution in the URL.
+
+```python
+# navigate field layout — display name on rows, ID in Detail:
+"fields": {
+    "F1": ...,  # measure
+    "F2": {"fieldName": "Full_Name", "objectName": "User", ...},  # rows — readable labels
+    "F3": {"fieldName": "User_Id",   "objectName": "User", ...},  # Detail — for {{substitution}}
+},
+"rows": ["F2"],  # Full Name visible; {{User_Id}} resolves from F3
+```
+
+Entity reference (confirmed SF ID field names):
+| Entity | SF ID field | objectName |
 |---|---|---|
-| Rep / User | `Full_Name` / `User` | `User_Id` / `User` |
-| Opportunity | owner name or opp name | `Opportunity_Id1` / `Opportunity1` |
-| Account | account name | `Account_Id` / `Account` |
+| Rep / User | `User_Id` | `User` |
+| Opportunity | `Opportunity_Id1` | `Opportunity1` |
+| Account | `Account_Id` | `Account` |
 
 ---
 
@@ -2106,7 +2118,8 @@ Workspace: {workspace_name}
 67. **The `field` / `fieldKey` in an interaction must reference a field in the viz's `fields` dict** — if the fieldName+objectName combo isn't present, the action is silently ignored. For `recordaction`, `recordId.fieldKey` must also be in `fields`.
 68. **Viz PATCH requires the full payload — interactions-only PATCH is rejected** — GET the viz, swap `interactions`, strip read-only fields (`id`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `permissions`, `sourceVersion`, view `id`/`isOriginal`, field `id`s), keep `dataSource`/`workspace` with only `name`/`type`, then PATCH with the full payload.
 69. **`{{fieldApiName}}` in a `navigate` URL substitutes the clicked mark's value at runtime** — use relative URLs (`/lightning/...`), no org domain needed. Only works for `navigate` type — `recordaction` uses `recordId.fieldKey` instead.
-70. **For any call/task/email action on a person or record, always pair display name + SF ID** — put the human-readable name on rows (readable bar labels) and add the SF record ID as a Detail field (in `fields` dict, NOT on any shelf). Use the display name as `field` / `click_field` and the ID field as `recordId` (for `recordaction`) or `{{ID_field}}` in the URL (for `navigate`). Names are not unique across orgs.
+70. **For `recordaction`, the `recordId` field MUST be on the rows shelf** — a Detail-only field is not in the mark's data context at click time, causing "The selected recordId is missing" error. The bars will show raw SF IDs (e.g. `005aj000...`) instead of names, which is the necessary trade-off. Add the display name as a Detail field so it appears in the tooltip. Both `field.fieldKey` and `recordId.fieldKey` should point to the same SF ID field on the rows shelf.
+71. **For `recordaction`, use the SF record ID field on rows — not the display name** — the platform resolves the action by finding the record ID value of the clicked mark. If Full_Name is on rows and User_Id is only in Detail, the recordId cannot be resolved and the action fails silently with "recordId is missing".
 
 ---
 
