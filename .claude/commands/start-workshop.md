@@ -450,13 +450,35 @@ Wait for the user's reply before proceeding.
 
 **If the reply includes a dashboard (option 4 or 5)**, ask before writing the script:
 
-> "What would you like to call the dashboard? (or press Enter to use the default: [BANK_NAME] — [USE_CASE] Overview)"
+> "What would you like to call the dashboard? (or press Enter to use the default: [USE_CASE] Overview)"
 
 Use their answer as the `label` in the dashboard payload. If they press Enter or say "default", use the auto-generated label.
 
 ---
 
-### 2d-c — Execute the user's choice
+### 2d-c — Set workshop theme, then execute the user's choice
+
+**Before writing any script**, ask one lightweight question to set the theme:
+
+> "What theme would you like for your workshop dashboard? This is just used for labels and naming — pick anything that fits the data in the model you selected.
+>
+> A few ideas based on common models:
+> - **Sales pipeline** — deals, reps, stages, regions
+> - **Marketing** — campaigns, leads, conversion
+> - **Customer success** — accounts, health scores, renewals
+> - **Finance** — revenue, costs, margins
+>
+> Or just describe what you'd like and I'll run with it."
+
+Wait for their answer, then set these variables and use them throughout all generated scripts:
+
+```python
+COMPANY_NAME = "Workshop"          # keep generic — not a real company
+USE_CASE     = "<their theme>"     # e.g. "Sales Pipeline", "Customer Success"
+PERSONA      = "<sensible default based on theme>"   # e.g. "VP of Sales", "Head of CS"
+```
+
+Do NOT ask for a company name, prospect name, demo story, or signal onset — this is a workshop, not a customer demo. Keep `COMPANY_NAME = "Workshop"` unless the user specifically provides one.
 
 **Script discipline — always follow this order:**
 1. Use the Write tool to write the complete `.py` script to disk
