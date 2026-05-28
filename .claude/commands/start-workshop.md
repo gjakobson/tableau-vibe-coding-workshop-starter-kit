@@ -442,7 +442,8 @@ Present a clean summary to the user:
 > 3. Create new visualizations
 > 4. Build a new dashboard
 > 5. Add a custom viz extension (D3 chart not available natively in Tableau)
-> 6. Do multiple of the above
+> 6. Add a click action to a visualization (e.g. click a bar → open a URL)
+> 7. Do multiple of the above
 >
 > Reply with one or more numbers."
 
@@ -494,6 +495,8 @@ Never call `python3 <script_name>.py` before the Write tool has created the file
 **If they want to add vizzes to an existing dashboard** — GET the dashboard first, clean each existing widget (strip `id`, `status`, `label` from top-level; strip `label`, `type` from each widget's `source` object), merge new widgets/cells, then PATCH with the full payload including `label`, `name`, `description`, `workspaceIdOrApiName`, `style`, `widgets`, `layouts` — omitting those top-level fields causes 500 errors (pitfall #59). Never add a `source` field to extension-type widgets in a PATCH payload — causes 403 (pitfall #60).
 
 **If they want a custom viz extension (option 5)** — follow STEP VIZ-EXT below.
+
+**If they want a click action on a viz (option 6)** — ask which viz, which field should trigger the click, and what URL to open. Then use the `viz_url_interaction()` helper from STEP M2 to PATCH the viz's `interactions` array.
 
 **Always fetch the current model state before making any additions** — never assume field apiNames from memory. Always GET the model and rebuild the `field_api` lookup before referencing any field.
 
@@ -1523,6 +1526,76 @@ pipeline_by_region = create_visualization(
 
 ---
 
+## STEP M2 — Viz Actions (CONFIRMED WORKING — v66.0)
+
+Use this when the user wants a click-to-URL action on a visualization (e.g. clicking a bar opens a Salesforce record, an external page, or a filtered view).
+
+Actions that fire on mark click live in `interactions`, **not** `actions`. The `actions` array always stays `[]`.
+
+```python
+import json
+
+def html_encode(s):
+    return s.replace("&", "&amp;").replace('"', "&quot;")
+
+def viz_url_interaction(field_name, object_name, field_label, url,
+                        display_category="Discrete"):
+    """
+    Creates a click-to-URL interaction for a viz.
+    field_name / object_name: must match a field actually on the viz — if not present, silently ignored.
+    url: the destination URL (external link, Salesforce record page, etc.)
+    display_category: "Discrete" for dimensions (default), "Continuous" for measures.
+    """
+    field_json = json.dumps({
+        "displayCategory":     display_category,
+        "fieldName":           field_name,
+        "label":               field_label,
+        "objectName":          object_name,
+        "role":                "Dimension",
+        "type":                "Field",
+        "disambiguationIndex": 0,
+    }, separators=(",", ":"))
+
+    url_json = json.dumps({"url": [url]}, separators=(",", ":"))
+
+    return {
+        "actionType": "navigate",
+        "eventType":  "click",
+        "parameters": {
+            "destination": {
+                "target": html_encode(url_json),   # HTML-entity-encoded JSON string — NOT raw JSON
+                "type":   "url",                   # use "page" + UUID for internal dashboard navigation
+            },
+            "field": html_encode(field_json),      # HTML-entity-encoded JSON string — NOT raw JSON
+            "label": "Open URL",
+        },
+    }
+
+# Apply to an existing viz via PATCH (interactions-only PATCH is accepted):
+r = requests.get(f"{BASE_VIZ}/tableau/visualizations/{viz_name}", headers=SF_HDRS)
+viz = r.json()
+
+viz["interactions"] = [
+    viz_url_interaction(
+        field_name="Primary_Industry1",
+        object_name="Account1",
+        field_label="Industry",
+        url="https://your-org.lightning.force.com/lightning/o/Account/list",
+    )
+]
+
+resp = requests.patch(f"{BASE_VIZ}/tableau/visualizations/{viz_name}",
+                      headers=SF_HDRS, json={"interactions": viz["interactions"]})
+if resp.ok:
+    print("  ✅ Action applied")
+else:
+    print(f"  ❌ {resp.status_code} {resp.text[:300]}")
+```
+
+**When adding actions during initial viz creation**, include `interactions` directly in the `create_visualization` payload — same structure, no separate PATCH needed.
+
+---
+
 ## STEP N — Dashboard (CONFIRMED WORKING — always include)
 
 ```python
@@ -1862,6 +1935,10 @@ Workspace: {workspace_name}
 60. **Extension widget `source` field causes 403 ACCESS_DENIED on PATCH** — Even with edit permissions, including a `source` object on an extension-type widget in a PATCH payload triggers `ACCESS_DENIED`. Omit `source` entirely from extension widgets. The API infers the component from `parameters.fullyQualifiedName`. Non-extension widgets (metric, visualization, filter, text) keep their `source` but have `label` and `type` stripped from it (pitfall #59).
 61. **Dashboard POST also rejects `source.type` on widget source objects** — same `type` stripping rule applies on POST, not just PATCH. Strip `label` and `type` from every widget's `source` before submitting. The `dash_metric()` and `dash_viz()` helpers in Step N do NOT include `type` in their `source` objects; follow that pattern on POST.
 62. **`sortOrders` in `visualSpecification` causes `JSON_PARSER_ERROR`** — `sortOrders` belongs in `view.viewSpecification`, not directly in `visualSpecification`. The `create_visualization()` helper in Step M already places it correctly under `view.viewSpecification.sortOrders`. Do not move it or duplicate it into `visualSpecification`.
+63. **Viz click actions live in `interactions`, not `actions`** — the `actions` array is unrelated to mark-click behavior and always stays `[]`. Click-to-URL and click-to-page actions go in `interactions[]` with `eventType: "click"`.
+64. **`interactions[].parameters.target` and `.field` are HTML-entity-encoded JSON strings** — serialize the inner object to JSON first, then replace `"` → `&quot;` and `&` → `&amp;`. Sending raw JSON objects (not encoded strings) fails silently — the action saves but never fires.
+65. **`type: "url"` for external links; `type: "page"` for internal dashboard navigation** — page navigation requires a UUID as the target value instead of a URL string.
+66. **The `field` in an interaction must match a field actually on the viz** — `fieldName` + `objectName` must correspond to a field in the viz's `fields` dict. If the field isn't on the viz, the action is silently ignored — no error returned.
 
 ---
 
