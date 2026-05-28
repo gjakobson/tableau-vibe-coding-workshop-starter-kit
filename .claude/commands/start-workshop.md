@@ -1546,9 +1546,11 @@ def viz_url_interaction(field_name, object_name, field_label, url,
     url: the destination URL (external link, Salesforce record page, etc.)
     display_category: "Discrete" for dimensions (default), "Continuous" for measures.
 
-    Confirmed format (from Tableau UI save, 2026-05-28):
-      - parameters.field  = raw JSON string (plain quotes, NOT HTML-encoded)
-      - parameters.destination.target = HTML-entity-encoded JSON string (&quot;)
+    Confirmed encoding (tested via API POST + UI read-back, 2026-05-28):
+      - On WRITE (POST/PATCH): both field and destination.target are raw JSON strings
+      - On READ (GET): the API returns destination.target HTML-entity-encoded (&quot;),
+        field stays as a raw JSON string
+      - html_encode() is NOT needed anywhere in the write path
     """
     field_json = json.dumps({
         "displayCategory":     display_category,
@@ -1567,10 +1569,10 @@ def viz_url_interaction(field_name, object_name, field_label, url,
         "eventType":  "click",
         "parameters": {
             "destination": {
-                "target": html_encode(url_json),  # HTML-entity-encoded JSON string (&quot;)
-                "type":   "url",                  # use "page" + UUID for internal dashboard navigation
+                "target": url_json,   # raw JSON string on write (API stores as HTML-encoded on GET)
+                "type":   "url",      # use "page" + UUID for internal dashboard navigation
             },
-            "field": field_json,                  # raw JSON string — NOT HTML-encoded (confirmed)
+            "field": field_json,      # raw JSON string
             "label": "Open URL",
         },
     }
@@ -1940,7 +1942,7 @@ Workspace: {workspace_name}
 61. **Dashboard POST also rejects `source.type` on widget source objects** — same `type` stripping rule applies on POST, not just PATCH. Strip `label` and `type` from every widget's `source` before submitting. The `dash_metric()` and `dash_viz()` helpers in Step N do NOT include `type` in their `source` objects; follow that pattern on POST.
 62. **`sortOrders` in `visualSpecification` causes `JSON_PARSER_ERROR`** — `sortOrders` belongs in `view.viewSpecification`, not directly in `visualSpecification`. The `create_visualization()` helper in Step M already places it correctly under `view.viewSpecification.sortOrders`. Do not move it or duplicate it into `visualSpecification`.
 63. **Viz click actions live in `interactions`, not `actions`** — the `actions` array is unrelated to mark-click behavior and always stays `[]`. Click-to-URL and click-to-page actions go in `interactions[]` with `eventType: "click"`.
-64. **`interactions[].parameters.destination.target` is HTML-entity-encoded JSON; `.field` is a raw JSON string** — `destination.target` must be HTML-entity-encoded (`"` → `&quot;`). `field` is a plain JSON string with regular quotes — do NOT HTML-encode it. Confirmed from Tableau UI save (2026-05-28). Both values must be strings (not raw JSON objects) or the action saves but never fires.
+64. **`interactions[].parameters` values are raw JSON strings on write; the API HTML-encodes `destination.target` on storage** — On POST/PATCH, send both `field` and `destination.target` as plain JSON strings (no HTML-encoding). The GET response returns `destination.target` HTML-entity-encoded (`&quot;`) but `field` as a raw JSON string — this asymmetry is API behaviour, not a bug. Sending HTML-encoded values on write causes `INVALID_VISUALIZATION_METADATA`. Confirmed via API test (2026-05-28).
 65. **`type: "url"` for external links; `type: "page"` for internal dashboard navigation** — page navigation requires a UUID as the target value instead of a URL string.
 66. **The `field` in an interaction must match a field actually on the viz** — `fieldName` + `objectName` must correspond to a field in the viz's `fields` dict. If the field isn't on the viz, the action is silently ignored — no error returned.
 
