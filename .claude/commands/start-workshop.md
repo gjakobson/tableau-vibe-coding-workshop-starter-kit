@@ -1535,22 +1535,21 @@ Actions that fire on mark click live in `interactions`, **not** `actions`. The `
 ```python
 import json
 
-def html_encode(s):
-    return s.replace("&", "&amp;").replace('"', "&quot;")
-
 def viz_url_interaction(field_name, object_name, field_label, url,
-                        display_category="Discrete"):
+                        action_label="Open URL", display_category="Discrete"):
     """
     Creates a click-to-URL interaction for a viz.
     field_name / object_name: must match a field actually on the viz — if not present, silently ignored.
-    url: the destination URL (external link, Salesforce record page, etc.)
-    display_category: "Discrete" for dimensions (default), "Continuous" for measures.
+    url: destination URL. Use relative paths (/lightning/...) or full URLs.
+         Use {{fieldApiName}} anywhere in the URL to substitute the clicked value at runtime.
+         Example: "/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}"
+    action_label: label shown on the action chip in the UI (e.g. "Log a Call", "Set Up Call").
 
-    Confirmed encoding (tested via API POST + UI read-back, 2026-05-28):
+    Confirmed encoding (tested via API, 2026-05-28):
       - On WRITE (POST/PATCH): both field and destination.target are raw JSON strings
       - On READ (GET): the API returns destination.target HTML-entity-encoded (&quot;),
-        field stays as a raw JSON string
-      - html_encode() is NOT needed anywhere in the write path
+        field also HTML-encoded on GET — this is storage format only, NOT the write format
+      - Do NOT HTML-encode anything on write — causes INVALID_VISUALIZATION_METADATA
     """
     field_json = json.dumps({
         "displayCategory":     display_category,
@@ -1569,33 +1568,73 @@ def viz_url_interaction(field_name, object_name, field_label, url,
         "eventType":  "click",
         "parameters": {
             "destination": {
-                "target": url_json,   # raw JSON string on write (API stores as HTML-encoded on GET)
-                "type":   "url",      # use "page" + UUID for internal dashboard navigation
+                "target": url_json,    # raw JSON string on write
+                "type":   "url",       # use "page" + UUID for internal dashboard navigation
             },
-            "field": field_json,      # raw JSON string
-            "label": "Open URL",
+            "field": field_json,       # raw JSON string on write
+            "label": action_label,
         },
     }
 
-# Apply to an existing viz via PATCH (interactions-only PATCH is accepted):
-r = requests.get(f"{BASE_VIZ}/tableau/visualizations/{viz_name}", headers=SF_HDRS)
-viz = r.json()
+# ── Common action URL patterns ────────────────────────────────────────────────
+# Open Salesforce record list:
+#   url = "/lightning/o/Opportunity/list"
+#
+# Log a call (pre-fill Related To with clicked Opportunity ID):
+#   url = "/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}"
+#
+# Set up call (pre-fill Subject with clicked Rep Name):
+#   url = "/lightning/o/Task/new?defaultFieldValues=Subject=Set up call with {{Full_Name}}"
+#
+# Open specific record (if field is a Salesforce ID):
+#   url = "/lightning/r/Opportunity/{{Opportunity_Id1}}/view"
+#
+# {{fieldApiName}} is substituted with the clicked bar's value at runtime.
+# Use the fieldName as it appears in the viz's fields dict (e.g. "Opportunity_Id1", "Full_Name").
 
-viz["interactions"] = [
-    viz_url_interaction(
-        field_name="Primary_Industry1",
-        object_name="Account1",
-        field_label="Industry",
-        url="https://your-org.lightning.force.com/lightning/o/Account/list",
-    )
-]
+# ── Apply to an existing viz via PATCH ────────────────────────────────────────
+# PATCH requires: label + visualSpecification (minimum). Easiest: GET the viz,
+# swap interactions, strip read-only fields, send the full payload.
 
-resp = requests.patch(f"{BASE_VIZ}/tableau/visualizations/{viz_name}",
-                      headers=SF_HDRS, json={"interactions": viz["interactions"]})
-if resp.ok:
-    print("  ✅ Action applied")
-else:
-    print(f"  ❌ {resp.status_code} {resp.text[:300]}")
+def patch_viz_interactions(viz_name, interactions, base_viz_url, headers):
+    r = requests.get(f"{base_viz_url}/tableau/visualizations/{viz_name}", headers=headers)
+    r.raise_for_status()
+    viz = r.json()
+    viz["interactions"] = interactions
+    # Strip read-only top-level fields
+    for key in ("id", "createdBy", "createdDate", "lastModifiedBy", "lastModifiedDate",
+                "permissions", "sourceVersion"):
+        viz.pop(key, None)
+    # Keep dataSource + workspace but strip sub-fields the API rejects
+    for block in ("dataSource", "workspace"):
+        if block in viz:
+            viz[block] = {k: v for k, v in viz[block].items() if k in ("name", "type")}
+    # Strip id from view and fields entries
+    if "view" in viz:
+        viz["view"].pop("id", None)
+        viz["view"].pop("isOriginal", None)
+    for f in viz.get("fields", {}).values():
+        f.pop("id", None)
+    resp = requests.patch(f"{base_viz_url}/tableau/visualizations/{viz_name}",
+                          headers=headers, json=viz)
+    if resp.ok:
+        print(f"  ✅ Action applied to {viz_name}")
+    else:
+        print(f"  ❌ {resp.status_code} {resp.text[:300]}")
+
+# Example — log a call on opportunity bar click:
+patch_viz_interactions(
+    viz_name="detail_chart_fg",
+    interactions=[viz_url_interaction(
+        field_name="Opportunity_Id1",
+        object_name="Opportunity1",
+        field_label="Opportunity Id",
+        url="/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}",
+        action_label="Log a Call",
+    )],
+    base_viz_url=BASE_VIZ,
+    headers=SF_HDRS,
+)
 ```
 
 **When adding actions during initial viz creation**, include `interactions` directly in the `create_visualization` payload — same structure, no separate PATCH needed.
@@ -1945,6 +1984,8 @@ Workspace: {workspace_name}
 64. **`interactions[].parameters` values are raw JSON strings on write; the API HTML-encodes `destination.target` on storage** — On POST/PATCH, send both `field` and `destination.target` as plain JSON strings (no HTML-encoding). The GET response returns `destination.target` HTML-entity-encoded (`&quot;`) but `field` as a raw JSON string — this asymmetry is API behaviour, not a bug. Sending HTML-encoded values on write causes `INVALID_VISUALIZATION_METADATA`. Confirmed via API test (2026-05-28).
 65. **`type: "url"` for external links; `type: "page"` for internal dashboard navigation** — page navigation requires a UUID as the target value instead of a URL string.
 66. **The `field` in an interaction must match a field actually on the viz** — `fieldName` + `objectName` must correspond to a field in the viz's `fields` dict. If the field isn't on the viz, the action is silently ignored — no error returned.
+67. **Viz PATCH requires `label` + `visualSpecification` at minimum — interactions-only PATCH is rejected** — Unlike dashboards (which accept partial PATCH), viz PATCH requires at least `label` and `visualSpecification`. Easiest pattern: GET the full viz, swap `interactions`, strip read-only fields (`id`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `permissions`, `sourceVersion`, view `id`/`isOriginal`, field `id`s), keep `dataSource` and `workspace` with only `name`/`type` sub-fields, then PATCH with the full payload.
+68. **`{{fieldApiName}}` in a URL is substituted at runtime with the clicked mark's value** — use the fieldName as it appears in the viz's `fields` dict (e.g. `{{Opportunity_Id1}}`, `{{Full_Name}}`). Works in any part of the URL including query params. Use relative URLs (`/lightning/o/Task/new?...`) — no org domain needed.
 
 ---
 
