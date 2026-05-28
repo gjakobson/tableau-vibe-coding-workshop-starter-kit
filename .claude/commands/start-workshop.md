@@ -1532,6 +1532,38 @@ Use this when the user wants a click-to-URL action on a visualization (e.g. clic
 
 Actions that fire on mark click live in `interactions`, **not** `actions`. The `actions` array always stays `[]`.
 
+### Design rule — uniquely selectable dimensions
+
+Any time the user asks to "call a rep", "log a call", "assign a task", or navigate to a specific Salesforce record based on a click:
+
+- **The clicked field must be a unique identifier** — use a Salesforce ID field (e.g. `User_Id`, `Opportunity_Id1`), not a name field. Names are not guaranteed unique across orgs.
+- **Display names go on the rows shelf** — put `Full_Name` (or equivalent) on rows so bars are human-readable.
+- **The unique ID goes in Detail** — add the ID field (e.g. `User_Id`) as a third field in the `fields` dict but do NOT add it to `rows` or `columns`. It stays off the visual but is available for `{{substitution}}` in the URL.
+- **The interaction `field` references the display name** (Full Name) — this is what the user clicks. The `{{ID_field}}` in the URL resolves from the Detail field present on the same row.
+
+```python
+# Correct pattern for "call a rep" viz:
+"fields": {
+    "F1": calc_measure("Win_Rate_clc", "Win Rate", function="Avg"),       # columns shelf
+    "F2": raw_dim("Full_Name", "User", "Rep Name"),                       # rows shelf (bar labels)
+    "F3": raw_dim("User_Id",   "User", "Rep ID"),                         # Detail only — unique SF ID
+},
+"rows": ["F2"],      # Full Name on rows — human-readable
+"columns": ["F1"],   # measure on columns
+# F3 is NOT in rows or columns — it's a Detail field only
+# {{User_Id}} in the URL resolves to the User_Id value for the clicked rep's row
+"interactions": [viz_url_interaction(
+    field_name="Full_Name", object_name="User", field_label="Rep Name",
+    url="/lightning/o/Task/new?defaultFieldValues=OwnerId={{User_Id}},Subject=Call {{Full_Name}}",
+    action_label="Call Rep",
+)]
+```
+
+The same pattern applies to any entity:
+- Opportunity: rows = `Name` or owner name, Detail = `Opportunity_Id1` (the SF ID field)
+- Account: rows = `Account_Name`, Detail = `Account_Id`
+- Rep / User: rows = `Full_Name`, Detail = `User_Id`
+
 ```python
 import json
 
@@ -1986,6 +2018,7 @@ Workspace: {workspace_name}
 66. **The `field` in an interaction must match a field actually on the viz** — `fieldName` + `objectName` must correspond to a field in the viz's `fields` dict. If the field isn't on the viz, the action is silently ignored — no error returned.
 67. **Viz PATCH requires `label` + `visualSpecification` at minimum — interactions-only PATCH is rejected** — Unlike dashboards (which accept partial PATCH), viz PATCH requires at least `label` and `visualSpecification`. Easiest pattern: GET the full viz, swap `interactions`, strip read-only fields (`id`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `permissions`, `sourceVersion`, view `id`/`isOriginal`, field `id`s), keep `dataSource` and `workspace` with only `name`/`type` sub-fields, then PATCH with the full payload.
 68. **`{{fieldApiName}}` in a URL is substituted at runtime with the clicked mark's value** — use the fieldName as it appears in the viz's `fields` dict (e.g. `{{Opportunity_Id1}}`, `{{Full_Name}}`). Works in any part of the URL including query params. Use relative URLs (`/lightning/o/Task/new?...`) — no org domain needed.
+69. **For "call rep" / "log call" actions, never use Full Name as the only dimension** — names are not unique. Always include the Salesforce ID field (e.g. `User_Id`, `Opportunity_Id1`) as a Detail field (in `fields` dict but NOT on rows/columns shelf). Use `{{ID_field}}` in the URL and the display name field as the `field` in the interaction. The ID in Detail is available for URL substitution even though it's not visible on the chart.
 
 ---
 
