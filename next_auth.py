@@ -124,15 +124,20 @@ def main():
     webbrowser.open(auth_url)
 
     print("After you authorize, the browser redirects to a page that says 'Authorization Successful'.")
-    print("Look at the URL — it contains '?code=...'")
-    print("Copy everything after '?code=' and before any '&' character.\n")
+    print("Copy the entire URL from your browser's address bar and paste it below.\n")
 
-    code = input("Paste the authorization code here: ").strip()
-    if not code:
-        print("No code entered. Exiting.")
+    raw = input("Paste the full redirect URL here: ").strip()
+    if not raw:
+        print("No URL entered. Exiting.")
         sys.exit(1)
 
-    code = urllib.parse.unquote(code)
+    parsed = urllib.parse.urlparse(raw)
+    params = urllib.parse.parse_qs(parsed.query)
+    if "code" not in params:
+        # Maybe they pasted just the code anyway — accept that too
+        code = urllib.parse.unquote(raw)
+    else:
+        code = params["code"][0]
 
     print("\nExchanging code for tokens...")
     r = requests.post(f"{sf_login_url}/services/oauth2/token", data={
