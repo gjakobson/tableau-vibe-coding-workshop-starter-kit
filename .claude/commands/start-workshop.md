@@ -1584,127 +1584,208 @@ pipeline_by_region = create_visualization(
 
 There are two action types. Choose based on what the user wants:
 
-| User intent | Action type | Use |
+| User intent | Action type | Viz type to create |
 |---|---|---|
-| "Log a call", "assign a task", "send email" — native Salesforce action | `recordaction` | Opens Salesforce's native action panel. Requires a real SF record ID field on the viz. |
-| Open a URL, open a list view, open an external page | `navigate` | Opens any URL. Can inject field values via `{{fieldName}}` substitution. |
+| "Log a call", "assign a task", "send email" on an opportunity/account/contact | `recordaction` | **Action table** — see below |
+| Open a URL, open a list view, open an external page | `navigate` | Any viz — bar chart, table, etc. |
 
 Actions that fire on mark click live in `interactions`, **not** `actions`. The `actions` array always stays `[]`.
 
 ---
 
-### Design rule — field placement differs by action type
+### Action type 1 — Salesforce Action (`recordaction`) — CONFIRMED WORKING PATTERN
 
-**`recordaction` (Log a Call, New Task, Send Email):**
-- The **SF record ID must be on the rows shelf** — the platform resolves the clicked record from the mark's row data. A Detail-only ID field is not in that context.
-- Bars will display raw SF IDs (e.g. `005aj000...`). Add the display name as a Detail field so it shows in the tooltip.
-- Both `field.fieldKey` and `recordId.fieldKey` point to the same ID field.
+**When the user asks to click on a record and trigger a Salesforce action (Log a Call, New Task, Send Email), always create an Action Table** — a text table with the record ID and related dims as rows, measures as Label encodings. This is the only pattern confirmed to work reliably.
 
-```python
-# recordaction field layout — SF ID on rows:
-"fields": {
-    "F1": {"type": "Field", "fieldName": "Win_Rate_clc", "function": "Avg",
-           "role": "Measure", "displayCategory": "Continuous", "label": "Win Rate"},
-    "F2": {"type": "Field", "fieldName": "User_Id", "objectName": "User",
-           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep"},   # rows shelf
-    "F3": {"type": "Field", "fieldName": "Full_Name", "objectName": "User",
-           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep Name"},  # Detail/tooltip
-},
-"rows": ["F2"],     # User_Id on rows — required for recordId resolution
-"columns": ["F1"],
-# F3 NOT in rows or columns — tooltip only
+**The confirmed-working structure** (from `detail_chart_fg_republished`, 2026-05-28):
+
+```
+mode: "Visualization"   ← NOT "Table"
+mark type: "Text"
+marks.ALL.isAutomatic: true
+marks.ALL.showMarkLabels: true
+rows: [dim fields including the record ID]
+columns: []
+measureValues: []
+measures → marks.ALL.encodings with type: "Label"
+record ID → appears TWICE:
+    1. In rows (the clickable column — where the action fires)
+    2. As a "Detail" encoding in marks.ALL.encodings (so recordId resolves at click time)
+allHeaders rows/columns mergeRepeatedCells: true  (Visualization mode, not Table mode)
+axis: {}  (empty — no axis in this layout)
 ```
 
-**`navigate` (open URL, list view, record page):**
-- Display name can go on rows (human-readable bars).
-- SF ID goes in Detail (not on any shelf) — available via `{{User_Id}}` substitution in the URL.
-
-```python
-# navigate field layout — display name on rows, ID in Detail:
-"fields": {
-    "F1": ...,  # measure
-    "F2": {"fieldName": "Full_Name", "objectName": "User", ...},  # rows — readable labels
-    "F3": {"fieldName": "User_Id",   "objectName": "User", ...},  # Detail — for {{substitution}}
-},
-"rows": ["F2"],  # Full Name visible; {{User_Id}} resolves from F3
-```
-
-Entity reference (confirmed SF ID field names):
-| Entity | SF ID field | objectName |
-|---|---|---|
-| Rep / User | `User_Id` | `User` |
-| Opportunity | `Opportunity_Id1` | `Opportunity1` |
-| Account | `Account_Id` | `Account` |
-
----
-
-### Action type 1 — Salesforce Action (`recordaction`) — PREFERRED for call/task/email
-
-Use this when the user wants to trigger a native Salesforce action (Log a Call, New Task, Send Email). Opens the platform's native action panel pre-wired to the clicked record.
+**Why `Global.LogACall` is greyed out on User records**: Log a Call is a standard Salesforce action on Opportunity, Account, and Contact records — NOT on User records. Always use Opportunity (or Account/Contact) as the record entity for call/task actions.
 
 ```python
 import json
 
-def viz_sf_action_interaction(click_field_name, click_object_name,
-                               record_id_field_name, record_id_object_name,
-                               sf_actions, display_category="Discrete"):
+def fk(field_name, object_name):
+    """Field key for recordaction interactions — raw JSON string on write."""
+    return json.dumps({"displayCategory": "Discrete", "fieldName": field_name,
+        "objectName": object_name, "role": "Dimension", "type": "Field",
+        "disambiguationIndex": 0}, separators=(",", ":"))
+
+def sf_recordaction(record_id_field_name, record_id_object_name, sf_actions):
     """
-    Creates a Salesforce Action interaction (actionType: "recordaction").
-    Opens the Salesforce native action panel on mark click.
-
-    click_field_name / click_object_name:
-        The display field on the rows shelf (e.g. Full_Name / User).
-    record_id_field_name / record_id_object_name:
-        The SF record ID field in Detail (e.g. User_Id / User, Opportunity_Id1 / Opportunity1).
-        Must be a real Salesforce record ID — the platform uses it to wire the action to the record.
-    sf_actions: list of Salesforce action API names. Common values:
-        "Global.LogACall"   — Log a Call
-        "Global.NewTask"    — New Task
-        "Global.SendEmail"  — Send Email
-
-    Encoding: fieldKey values are raw JSON strings on write (not HTML-encoded).
-    The GET response returns them HTML-entity-encoded — storage format only.
+    sf_actions: list of Salesforce action API names:
+        "Global.LogACall"  — Log a Call  (works on Opportunity, Account, Contact — NOT User)
+        "Global.NewTask"   — New Task
+        "Global.SendEmail" — Send Email
     """
-    def fk(field_name, object_name):
-        return json.dumps({
-            "displayCategory":     display_category,
-            "fieldName":           field_name,
-            "objectName":          object_name,
-            "role":                "Dimension",
-            "type":                "Field",
-            "disambiguationIndex": 0,
-        }, separators=(",", ":"))
-
+    fkey = fk(record_id_field_name, record_id_object_name)
     return {
-        "actionType": "recordaction",
-        "eventType":  "click",
+        "actionType": "recordaction", "eventType": "click",
         "parameters": {
             "actions":  [{"apiName": a} for a in sf_actions],
-            "field":    {"fieldKey": fk(click_field_name,     click_object_name)},
-            "recordId": {"fieldKey": fk(record_id_field_name, record_id_object_name)},
+            "field":    {"fieldKey": fkey},   # the field the user clicks
+            "recordId": {"fieldKey": fkey},   # same field — resolves the SF record
         },
     }
 
-# Example — Log a Call on rep bar click:
-viz_sf_action_interaction(
-    click_field_name="Full_Name",   click_object_name="User",
-    record_id_field_name="User_Id", record_id_object_name="User",
-    sf_actions=["Global.LogACall"],
-)
+def create_action_table(label, name, sdm_name, workspace_name,
+                        id_field, id_object, id_label,
+                        extra_dims, measures, sf_actions):
+    """
+    Build a complete action table viz payload.
 
-# Example — Log a Call on opportunity bar click:
-viz_sf_action_interaction(
-    click_field_name="Opportunity_Id1",   click_object_name="Opportunity1",
-    record_id_field_name="Opportunity_Id1", record_id_object_name="Opportunity1",
+    id_field / id_object / id_label:
+        The SF record ID field. e.g. "Opportunity_Id1" / "Opportunity1" / "Opportunity ID"
+        This field appears on rows (clickable) AND as a Detail encoding (recordId resolution).
+
+    extra_dims: list of (fieldName, objectName, label) tuples for additional row columns.
+        e.g. [("Opportunity_Stage1","Opportunity1","Stage"),
+              ("Account_Name1","Account1","Account Name"),
+              ("Account_Type1","Account1","Account Type")]
+
+    measures: list of (fieldName, objectName_or_None, function, label) tuples.
+        Rendered as Label encodings (value columns in the table).
+        e.g. [("Total_Amount","Opportunity1","Sum","Total Amount"),
+              ("Avg_Probability_clc",None,"Avg","Avg Probability"),
+              ("Weighted_Pipeline_clc",None,"Sum","Weighted Pipeline")]
+
+    sf_actions: list of SF action API names, e.g. ["Global.LogACall"]
+    """
+    fields = {}
+    # Record ID on rows (col 1) — the clickable field
+    fields["F_id"] = {"type": "Field", "fieldName": id_field, "objectName": id_object,
+                      "role": "Dimension", "displayCategory": "Discrete", "label": id_label}
+    # Extra dimension columns
+    for i, (fn, obj, lbl) in enumerate(extra_dims):
+        fkey = f"F_d{i}"
+        fields[fkey] = {"type": "Field", "fieldName": fn, "objectName": obj,
+                        "role": "Dimension", "displayCategory": "Discrete", "label": lbl}
+    # Record ID a second time — Detail encoding for recordId resolution
+    fields["F_id2"] = {"type": "Field", "fieldName": id_field, "objectName": id_object,
+                       "role": "Dimension", "displayCategory": "Discrete", "label": id_label}
+    # Measure fields — shown as Label encodings
+    for i, (fn, obj, func, lbl) in enumerate(measures):
+        fkey = f"F_m{i}"
+        f = {"type": "Field", "fieldName": fn, "function": func,
+             "role": "Measure", "displayCategory": "Continuous", "label": lbl}
+        if obj: f["objectName"] = obj
+        fields[fkey] = f
+
+    dim_row_keys  = ["F_id"] + [f"F_d{i}" for i in range(len(extra_dims))]
+    measure_keys  = [f"F_m{i}" for i in range(len(measures))]
+
+    encodings = (
+        [{"fieldKey": "F_id2", "type": "Detail"}] +           # recordId resolution
+        [{"fieldKey": k, "type": "Label"} for k in measure_keys]  # value columns
+    )
+
+    return {
+        "label": label, "name": name,
+        "description": f"Action table: click {id_label} to trigger Salesforce action.",
+        "dataSource": {"name": sdm_name, "type": "SemanticModel"},
+        "workspace":  {"name": workspace_name},
+        "fields": fields,
+        "interactions": [sf_recordaction(id_field, id_object, sf_actions)],
+        "view": {
+            "label": f"{label} View", "name": f"{name}_view",
+            "viewSpecification": {"filters": [], "sortOrders": {"columns": [], "fields": {}, "rows": []}},
+        },
+        "visualSpecification": {
+            "rows": dim_row_keys, "columns": [], "measureValues": [],
+            "forecasts": {}, "legends": {},
+            "marks": {"ALL": {
+                "encodings": encodings,
+                "isAutomatic": True,
+                "stack": {"isAutomatic": True, "isStacked": False},
+                "type": "Text",
+            }},
+            "mode": "Visualization", "referenceLines": {},
+            "style": {
+                "allHeaders": {
+                    "columns": {"mergeRepeatedCells": True, "showIndex": False},
+                    "rows":    {"mergeRepeatedCells": True, "showIndex": False},
+                    "fields":  {k: {"hiddenValues": [], "isVisible": True, "showMissingValues": False}
+                                for k in dim_row_keys},
+                },
+                "axis": {},
+                "fieldLabels": {"columns": {"showDividerLine": False, "showLabels": True},
+                                "rows":    {"showDividerLine": False, "showLabels": True}},
+                "fit": "Standard",
+                "fonts": {"actionableHeaders": {"color": "#0250D9", "size": 13},
+                          "axisTickLabels": {"color": "#2E2E2E", "size": 13},
+                          "fieldLabels": {"color": "#2E2E2E", "size": 13},
+                          "headers": {"color": "#2E2E2E", "size": 13},
+                          "legendLabels": {"color": "#2E2E2E", "size": 13},
+                          "markLabels": {"color": "#2E2E2E", "size": 13},
+                          "marks": {"color": "#2E2E2E", "size": 13}},
+                "lines": {"axisLine": {"color": "#C9C9C9"}, "fieldLabelDividerLine": {"color": "#C9C9C9"},
+                          "separatorLine": {"color": "#C9C9C9"}, "zeroLine": {"color": "#C9C9C9"}},
+                "marks": {
+                    "ALL": {"color": {"color": ""}, "isAutomaticSize": True,
+                            "label": {"canOverlapLabels": False,
+                                      "marksToLabel": {"type": "All"}, "showMarkLabels": True},
+                            "range": {"reverse": True},
+                            "size": {"isAutomatic": True, "type": "Pixel", "value": 13}}
+                },
+                "panes": {k: {"defaults": {"format": {"numberFormatInfo": {
+                    "decimalPlaces": 2, "displayUnits": "Auto", "includeThousandSeparator": True,
+                    "negativeValuesFormat": "Auto", "prefix": "", "suffix": "", "type": "Number"}}}}
+                    for k in measure_keys},
+                "referenceLines": {},
+                "shading": {"backgroundColor": "#FFFFFF", "banding": {"rows": {"color": "#E5E5E5"}}},
+                "showDataPlaceholder": False, "title": {"isVisible": True},
+            },
+        },
+    }
+
+# ── Example — Opportunity action table with Log a Call ─────────────────────────
+payload = create_action_table(
+    label="Open Opportunities", name=f"{model_api_name}_open_opps_action",
+    sdm_name=model_api_name, workspace_name=workspace_name,
+    id_field="Opportunity_Id1", id_object="Opportunity1", id_label="Opportunity ID",
+    extra_dims=[
+        ("Opportunity_Stage1", "Opportunity1", "Stage"),
+        ("Account_Name1",      "Account1",     "Account Name"),
+        ("Account_Type1",      "Account1",     "Account Type"),
+    ],
+    measures=[
+        ("Total_Amount",            "Opportunity1", "Sum", "Total Amount"),
+        ("Avg_Probability_clc",     None,           "Avg", "Avg Probability"),
+        ("Weighted_Pipeline_clc",   None,           "Sum", "Weighted Pipeline"),
+    ],
     sf_actions=["Global.LogACall"],
 )
+resp = requests.post(f"{BASE_VIZ}/tableau/visualizations", headers=SF_HDRS, json=payload)
 ```
+
+Entity reference (confirmed SF ID field names):
+| Entity | SF ID field | objectName | Log a Call supported? |
+|---|---|---|---|
+| Opportunity | `Opportunity_Id1` | `Opportunity1` | ✅ Yes |
+| Account | `Account_Id` | `Account` | ✅ Yes |
+| Contact | `Contact_Id` | `Contact` | ✅ Yes |
+| User / Rep | `User_Id` | `User` | ❌ No — action is greyed out |
 
 ---
 
 ### Action type 2 — Navigate to URL (`navigate`) — for list views, external links
 
-Use this when the user wants to open any URL (Salesforce list view, external page, filtered report). Use `{{fieldApiName}}` anywhere in the URL to substitute the clicked value.
+Use this when the user wants to open any URL (Salesforce list view, external page, filtered report). Can be applied to any viz type — bar chart, table, etc. Use `{{fieldApiName}}` anywhere in the URL to substitute the clicked value at runtime.
 
 ```python
 def viz_url_interaction(field_name, object_name, field_label, url,
@@ -1712,8 +1793,7 @@ def viz_url_interaction(field_name, object_name, field_label, url,
     """
     Creates a click-to-URL interaction (actionType: "navigate").
     url: relative (/lightning/...) or full URL.
-         Use {{fieldApiName}} to substitute the clicked field's value at runtime.
-         Example: "/lightning/r/Opportunity/{{Opportunity_Id1}}/view"
+         Use {{fieldApiName}} anywhere to substitute the clicked value at runtime.
 
     Encoding: both field and destination.target are raw JSON strings on write.
     GET returns destination.target HTML-entity-encoded — do NOT use that format on write.
@@ -1734,9 +1814,9 @@ def viz_url_interaction(field_name, object_name, field_label, url,
     }
 
 # Common URL patterns:
-#   Open record:      "/lightning/r/Opportunity/{{Opportunity_Id1}}/view"
-#   Open list view:   "/lightning/o/Opportunity/list"
-#   New task (URL):   "/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}"
+#   Open record page:   "/lightning/r/Opportunity/{{Opportunity_Id1}}/view"
+#   Open list view:     "/lightning/o/Opportunity/list"
+#   New task (URL):     "/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}"
 ```
 
 ---
@@ -1768,7 +1848,7 @@ def patch_viz_interactions(viz_name, interactions, base_viz_url, headers):
         print(f"  ❌ {resp.status_code} {resp.text[:300]}")
 ```
 
-**When adding actions during initial viz creation**, include `interactions` directly in the `create_visualization` payload — same structure, no separate PATCH needed.
+**When adding actions during initial viz creation**, include `interactions` directly in the viz payload — same structure, no separate PATCH needed.
 
 ---
 
@@ -2112,14 +2192,14 @@ Workspace: {workspace_name}
 61. **Dashboard POST also rejects `source.type` on widget source objects** — same `type` stripping rule applies on POST, not just PATCH. Strip `label` and `type` from every widget's `source` before submitting. The `dash_metric()` and `dash_viz()` helpers in Step N do NOT include `type` in their `source` objects; follow that pattern on POST.
 62. **`sortOrders` in `visualSpecification` causes `JSON_PARSER_ERROR`** — `sortOrders` belongs in `view.viewSpecification`, not directly in `visualSpecification`. The `create_visualization()` helper in Step M already places it correctly under `view.viewSpecification.sortOrders`. Do not move it or duplicate it into `visualSpecification`.
 63. **Viz click actions live in `interactions`, not `actions`** — the `actions` array is unrelated to mark-click behavior and always stays `[]`. All mark-click actions go in `interactions[]` with `eventType: "click"`.
-64. **Use `recordaction` for native SF actions (Log a Call, New Task, Send Email); use `navigate` for URLs** — `recordaction` opens Salesforce's native action panel and requires a real SF record ID in `parameters.recordId`. `navigate` opens any URL and supports `{{fieldName}}` substitution. Sending `navigate` for a "Log a Call" request is wrong — use `recordaction` with `"Global.LogACall"`.
-65. **`recordaction` encoding: `fieldKey` values are raw JSON strings on write** — both `parameters.field.fieldKey` and `parameters.recordId.fieldKey` are JSON-stringified field descriptor objects (plain quotes, not HTML-encoded). The GET response returns them HTML-entity-encoded — that is storage format only, not the write format.
-66. **`navigate` encoding: both `field` and `destination.target` are raw JSON strings on write** — GET returns `destination.target` HTML-entity-encoded but `field` as raw JSON. Do NOT HTML-encode either on write — causes `INVALID_VISUALIZATION_METADATA`.
-67. **The `field` / `fieldKey` in an interaction must reference a field in the viz's `fields` dict** — if the fieldName+objectName combo isn't present, the action is silently ignored. For `recordaction`, `recordId.fieldKey` must also be in `fields`.
-68. **Viz PATCH requires the full payload — interactions-only PATCH is rejected** — GET the viz, swap `interactions`, strip read-only fields (`id`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `permissions`, `sourceVersion`, view `id`/`isOriginal`, field `id`s), keep `dataSource`/`workspace` with only `name`/`type`, then PATCH with the full payload.
-69. **`{{fieldApiName}}` in a `navigate` URL substitutes the clicked mark's value at runtime** — use relative URLs (`/lightning/...`), no org domain needed. Only works for `navigate` type — `recordaction` uses `recordId.fieldKey` instead.
-70. **For `recordaction`, the `recordId` field MUST be on the rows shelf** — a Detail-only field is not in the mark's data context at click time, causing "The selected recordId is missing" error. The bars will show raw SF IDs (e.g. `005aj000...`) instead of names, which is the necessary trade-off. Add the display name as a Detail field so it appears in the tooltip. Both `field.fieldKey` and `recordId.fieldKey` should point to the same SF ID field on the rows shelf.
-71. **For `recordaction`, use the SF record ID field on rows — not the display name** — the platform resolves the action by finding the record ID value of the clicked mark. If Full_Name is on rows and User_Id is only in Detail, the recordId cannot be resolved and the action fails silently with "recordId is missing".
+64. **Use `recordaction` for native SF actions (Log a Call, New Task, Send Email); use `navigate` for URLs** — `recordaction` opens Salesforce's native action panel; `navigate` opens any URL with optional `{{fieldName}}` substitution.
+65. **`recordaction` requires an Action Table — NOT a bar chart** — the only confirmed-working pattern is: `mode: "Visualization"`, mark type `"Text"`, all dims on `rows`, measures as `"Label"` encodings in `marks.ALL.encodings`, `columns: []`, `measureValues: []`. Bar charts and `mode: "Table"` both fail to resolve the recordId at click time.
+66. **The record ID must appear TWICE in `fields`** — once as a rows dimension (the clickable column), and once as a `"Detail"` encoding in `marks.ALL.encodings`. The Detail copy is what allows `recordId` to resolve at click time without adding a duplicate visible column.
+67. **`Global.LogACall` is greyed out on User records** — Log a Call is a standard Salesforce action on Opportunity, Account, and Contact records only. It is not available on User records. Always use Opportunity (or Account/Contact) as the entity for call/task actions.
+68. **`recordaction` and `navigate` encoding: all `fieldKey` / `field` / `destination.target` values are raw JSON strings on write** — the GET response returns them HTML-entity-encoded. Do NOT HTML-encode on write — causes `INVALID_VISUALIZATION_METADATA`.
+69. **Viz PATCH requires the full payload — interactions-only PATCH is rejected** — GET the viz, swap `interactions`, strip read-only fields (`id`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `permissions`, `sourceVersion`, view `id`/`isOriginal`, field `id`s), keep `dataSource`/`workspace` with only `name`/`type`, then PATCH with the full payload.
+70. **`{{fieldApiName}}` in a `navigate` URL substitutes the clicked mark's value at runtime** — use relative URLs (`/lightning/...`), no org domain needed.
+71. **In Action Table mode, `axis` must be `{}` and `marks.ALL.isAutomatic` must be `true`** — per-field axis config causes `INVALID_VISUALIZATION_METADATA`. `isAutomatic: false` with `mode: "Visualization"` and `"Text"` marks causes measures to not render.
 
 ---
 
