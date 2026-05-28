@@ -64,6 +64,9 @@ def load_or_prompt_config():
     ).strip().rstrip("/")
     if not sf_login_url:
         sf_login_url = "https://login.salesforce.com"
+    # Ensure scheme is present regardless of what the user pasted
+    if not sf_login_url.startswith("http"):
+        sf_login_url = "https://" + sf_login_url
 
     client_id = input("Connected App Client ID (Consumer Key, ~100 chars): ").strip()
     if not client_id:
@@ -94,7 +97,9 @@ def load_or_prompt_config():
 def main():
     org_name, cfg, existing_orgs = load_or_prompt_config()
 
-    sf_login_url  = cfg["sf_login_url"]
+    sf_login_url  = cfg["sf_login_url"].rstrip("/")
+    if not sf_login_url.startswith("http"):
+        sf_login_url = "https://" + sf_login_url
     client_id     = cfg["client_id"]
     client_secret = cfg["client_secret"]
 
