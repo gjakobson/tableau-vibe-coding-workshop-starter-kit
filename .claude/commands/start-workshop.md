@@ -317,35 +317,15 @@ Then proceed to STEP 2-DISCOVER.
 
 ### 1c — Collect credentials (only if no file exists or auth failed)
 
-> "No credentials file was found. Before we can set up your workshop, I need your Salesforce connection details. You'll only need to enter these once."
+> "No credentials file found. Run this in your terminal to get set up:
+>
+> ```
+> python3 next_auth.py
+> ```
+>
+> It will prompt you for your Salesforce credentials, open a browser for OAuth authorization, and save everything to `next_orgs.json`. Come back here when it says **You're ready**."
 
-Ask for the following. Include these hints exactly so participants know what to expect:
-
-1. **Friendly org name** — a short label for this org, e.g. `"Workshop Org"` or your own name
-2. **Salesforce login URL** — this is your org's **My Domain URL**, not the generic login page. It looks like `https://orgfarm-xxxxxxxxxx.my.salesforce.com`. Find it in Setup → My Domain, or copy it from your browser's address bar when logged in.
-3. **Connected App Client ID** — the **Consumer Key** from your Connected App. It's a long alphanumeric string (~100 chars).
-4. **Connected App Client Secret** — the **Consumer Secret** from your Connected App. It's a 64-character hex string.
-5. **Refresh token** — generated when you authorized the Connected App via OAuth. Run `python3 next_auth.py` if you haven't done this yet — it will open a browser and capture the token automatically.
-6. **Data Cloud domain** — your org's Data Cloud instance URL, without `https://`. It looks like `m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com`. Find it in Setup → Data Cloud → Data Cloud Setup.
-
-Connected App must have scopes: `cdp_ingest_api`, `cdp_query_api`, `full` or `api`, `sfap_api`.
-
-Save as `next_orgs.json`:
-```json
-{
-  "orgs": {
-    "{Friendly Name}": {
-      "sf_login_url": "https://orgfarm-xxxxxxxxxx.my.salesforce.com",
-      "client_id": "<~100-char Consumer Key>",
-      "client_secret": "<64-char hex Consumer Secret>",
-      "refresh_token": "<OAuth refresh token from next_auth.py>",
-      "data_cloud_domain": "m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com"
-    }
-  }
-}
-```
-
-Do not proceed until auth succeeds.
+Do not proceed until the user confirms `next_auth.py` completed successfully.
 
 Then proceed to STEP 2-DISCOVER.
 
