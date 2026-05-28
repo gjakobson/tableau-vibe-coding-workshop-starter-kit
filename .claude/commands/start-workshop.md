@@ -318,7 +318,7 @@ Run with: `python3 _check_auth.py`
 
 **If auth succeeds** — ask the user for their name before proceeding:
 
-> "Connected to [sf_instance]. What's your first name? I'll use it to create your personal workspace and tag all your assets."
+> "Connected to [sf_instance]. What's your name? Use the same name you used last time if you've been here before — I'll find your existing workspace and pick up where you left off."
 
 Wait for their reply. Store it as `USER_NAME` (raw, as they typed it — e.g. "Gabe").
 
@@ -355,24 +355,33 @@ Then proceed to STEP 2-DISCOVER.
 
 ## STEP 2-DISCOVER — ORG DISCOVERY MODE
 
-### 2d-0 — Create or confirm the user's personal workspace
+### 2d-0 — Find or create the user's personal workspace
 
-Before listing models, create (or confirm existence of) the user's personal workspace:
+Before listing models, search for the user's workspace. Create it only if it doesn't exist:
 
 ```python
-# Create personal workspace — 409 Conflict means it already exists, which is fine
-resp = requests.post(BASE_SEM + "/tableau/workspaces", headers=SF_HDRS,
-    json={"name": WORKSPACE_NAME, "label": USER_NAME})
-if resp.status_code == 201:
-    print(f"  ✅ Workspace created: {WORKSPACE_NAME}")
-elif resp.status_code == 409:
-    print(f"  ✅ Workspace already exists: {WORKSPACE_NAME}")
+# Search for existing workspace first
+r = requests.get(BASE_SEM + "/tableau/workspaces", headers=SF_HDRS, params={"limit": 100})
+workspaces = r.json().get("workspaces", r.json().get("items", []))
+existing = next((w for w in workspaces
+                 if w.get("name", "").lower() == WORKSPACE_NAME.lower()
+                 or w.get("label", "").lower() == USER_NAME.lower()), None)
+
+if existing:
+    WORKSPACE_NAME = existing["name"]   # use the exact apiName from the org
+    print(f"  ✅ Found existing workspace: {WORKSPACE_NAME}")
 else:
-    print(f"  ⚠️  Workspace: {resp.status_code} {resp.text[:200]}")
+    resp = requests.post(BASE_SEM + "/tableau/workspaces", headers=SF_HDRS,
+        json={"name": WORKSPACE_NAME, "label": USER_NAME})
+    if resp.ok:
+        print(f"  ✅ Workspace created: {WORKSPACE_NAME}")
+    else:
+        print(f"  ⚠️  Workspace: {resp.status_code} {resp.text[:200]}")
 ```
 
 Tell the user:
-> "Your personal workspace **[USER_NAME]** is ready. All your assets will go there."
+> "Found your workspace **[USER_NAME]** — picking up where you left off." (if found)
+> "Created your workspace **[USER_NAME]** — all your assets will go there." (if new)
 
 ---
 
