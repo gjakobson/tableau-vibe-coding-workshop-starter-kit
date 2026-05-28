@@ -327,7 +327,6 @@ Ask for the following. Include these hints exactly so participants know what to 
 4. **Connected App Client Secret** — the **Consumer Secret** from your Connected App. It's a 64-character hex string.
 5. **Refresh token** — generated when you authorized the Connected App via OAuth. Run `python3 next_auth.py` if you haven't done this yet — it will open a browser and capture the token automatically.
 6. **Data Cloud domain** — your org's Data Cloud instance URL, without `https://`. It looks like `m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com`. Find it in Setup → Data Cloud → Data Cloud Setup.
-7. **Ingestion connector name** — use `tableau_vibe_workshop` (this is the standard name for this workshop; only change it if your org uses a different connector).
 
 Connected App must have scopes: `cdp_ingest_api`, `cdp_query_api`, `full` or `api`, `sfap_api`.
 
@@ -340,9 +339,7 @@ Save as `next_orgs.json`:
       "client_id": "<~100-char Consumer Key>",
       "client_secret": "<64-char hex Consumer Secret>",
       "refresh_token": "<OAuth refresh token from next_auth.py>",
-      "data_cloud_domain": "m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com",
-      "ingestion_connector_name": "tableau_vibe_workshop",
-      "connector_sf_id": ""
+      "data_cloud_domain": "m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com"
     }
   }
 }

@@ -81,18 +81,12 @@ def load_or_prompt_config():
         "Data Cloud domain (e.g. m-xxxxxxxxxxxxxxxxxxxxxxxxxx.c360a.salesforce.com, no https://): "
     ).strip().lstrip("https://").lstrip("http://").rstrip("/")
 
-    connector_name = input(
-        "Ingestion connector name [tableau_vibe_workshop]: "
-    ).strip() or "tableau_vibe_workshop"
-
     cfg = {
-        "sf_login_url":             sf_login_url,
-        "client_id":                client_id,
-        "client_secret":            client_secret,
-        "refresh_token":            "",
-        "data_cloud_domain":        data_cloud_domain,
-        "ingestion_connector_name": connector_name,
-        "connector_sf_id":          "",
+        "sf_login_url":      sf_login_url,
+        "client_id":         client_id,
+        "client_secret":     client_secret,
+        "refresh_token":     "",
+        "data_cloud_domain": data_cloud_domain,
     }
     return org_name, cfg, None
 
@@ -173,27 +167,8 @@ def main():
         sys.exit(1)
     print("Data Cloud auth: OK")
 
-    # Discover connector
-    hdrs = {"Authorization": f"Bearer {sf_token}", "Content-Type": "application/json"}
-    r3 = requests.get(f"{sf_instance}/services/data/v62.0/ssot/connections",
-        headers=hdrs, params={"connectorType": "IngestApi", "limit": 50})
-    conn_sf_id, conn_uuid = "", ""
-    connector_name = cfg.get("ingestion_connector_name", "tableau_vibe_workshop")
-    if r3.ok:
-        for conn in r3.json().get("connections", []):
-            if conn.get("name", "").lower().startswith(connector_name.lower()):
-                conn_sf_id = conn["id"]
-                conn_uuid  = conn["name"]
-                print(f"Connector found: {conn_uuid}")
-                break
-        if not conn_sf_id:
-            available = [c.get("name") for c in r3.json().get("connections", [])]
-            print(f"Connector '{connector_name}' not found. Available: {available}")
-
     # Save updated credentials to next_orgs.json
-    cfg["refresh_token"]       = refresh_token
-    cfg["connector_sf_id"]     = conn_sf_id
-    cfg["connector_uuid_name"] = conn_uuid
+    cfg["refresh_token"] = refresh_token
 
     if existing_orgs is not None:
         existing_orgs[org_name] = cfg
@@ -203,12 +178,7 @@ def main():
 
     Path(ORGS_FILE).write_text(json.dumps(orgs_data, indent=2))
     print(f"\nCredentials saved to next_orgs.json  (org: {org_name})")
-
-    if not conn_sf_id:
-        print(f"\nNote: connector '{connector_name}' not found in this org.")
-        print("Create it in Setup → Data Cloud → Ingestion API, then re-run this script.")
-    else:
-        print("You're ready — run /start-workshop in Claude Code to begin.")
+    print("You're ready — run /start-workshop in Claude Code to begin.")
 
 
 if __name__ == "__main__":
