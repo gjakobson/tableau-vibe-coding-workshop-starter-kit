@@ -1582,123 +1582,170 @@ pipeline_by_region = create_visualization(
 
 ## STEP M2 — Viz Actions (CONFIRMED WORKING — v66.0)
 
-Use this when the user wants a click-to-URL action on a visualization (e.g. clicking a bar opens a Salesforce record, an external page, or a filtered view).
+There are two action types. Choose based on what the user wants:
+
+| User intent | Action type | Use |
+|---|---|---|
+| "Log a call", "assign a task", "send email" — native Salesforce action | `recordaction` | Opens Salesforce's native action panel. Requires a real SF record ID field on the viz. |
+| Open a URL, open a list view, open an external page | `navigate` | Opens any URL. Can inject field values via `{{fieldName}}` substitution. |
 
 Actions that fire on mark click live in `interactions`, **not** `actions`. The `actions` array always stays `[]`.
 
-### Design rule — uniquely selectable dimensions
+---
 
-Any time the user asks to "call a rep", "log a call", "assign a task", or navigate to a specific Salesforce record based on a click:
+### Design rule — uniquely selectable dimensions (applies to BOTH action types)
 
-- **The clicked field must be a unique identifier** — use a Salesforce ID field (e.g. `User_Id`, `Opportunity_Id1`), not a name field. Names are not guaranteed unique across orgs.
+Any time the user asks to "call a rep", "log a call", "assign a task", or act on a specific Salesforce record:
+
 - **Display names go on the rows shelf** — put `Full_Name` (or equivalent) on rows so bars are human-readable.
-- **The unique ID goes in Detail** — add the ID field (e.g. `User_Id`) as a third field in the `fields` dict but do NOT add it to `rows` or `columns`. It stays off the visual but is available for `{{substitution}}` in the URL.
-- **The interaction `field` references the display name** (Full Name) — this is what the user clicks. The `{{ID_field}}` in the URL resolves from the Detail field present on the same row.
+- **The Salesforce record ID goes in Detail** — add the SF ID field (e.g. `User_Id`, `Opportunity_Id1`) as an extra field in the `fields` dict but do NOT add it to `rows` or `columns`. It stays off the visual but is available as `recordId` (for `recordaction`) or via `{{substitution}}` (for `navigate`).
+- **Names alone are never sufficient** — they are not unique across orgs. Always pair display name + SF ID.
 
 ```python
-# Correct pattern for "call a rep" viz:
+# Field layout for any call/task action on a rep:
 "fields": {
-    "F1": calc_measure("Win_Rate_clc", "Win Rate", function="Avg"),       # columns shelf
-    "F2": raw_dim("Full_Name", "User", "Rep Name"),                       # rows shelf (bar labels)
-    "F3": raw_dim("User_Id",   "User", "Rep ID"),                         # Detail only — unique SF ID
+    "F1": {"type": "Field", "fieldName": "Win_Rate_clc", "function": "Avg",
+           "role": "Measure", "displayCategory": "Continuous", "label": "Win Rate"},
+    "F2": {"type": "Field", "fieldName": "Full_Name", "objectName": "User",
+           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep Name"},
+    "F3": {"type": "Field", "fieldName": "User_Id", "objectName": "User",
+           "role": "Dimension", "displayCategory": "Discrete", "label": "Rep ID"},
+    # F3 is Detail only — NOT in rows or columns
 },
-"rows": ["F2"],      # Full Name on rows — human-readable
-"columns": ["F1"],   # measure on columns
-# F3 is NOT in rows or columns — it's a Detail field only
-# {{User_Id}} in the URL resolves to the User_Id value for the clicked rep's row
-"interactions": [viz_url_interaction(
-    field_name="Full_Name", object_name="User", field_label="Rep Name",
-    url="/lightning/o/Task/new?defaultFieldValues=OwnerId={{User_Id}},Subject=Call {{Full_Name}}",
-    action_label="Call Rep",
-)]
+"rows": ["F2"],     # Full Name: human-readable bar labels
+"columns": ["F1"],  # measure
+# F3 (User_Id) is in fields but not on any shelf — available as recordId / {{User_Id}}
 ```
 
-The same pattern applies to any entity:
-- Opportunity: rows = `Name` or owner name, Detail = `Opportunity_Id1` (the SF ID field)
-- Account: rows = `Account_Name`, Detail = `Account_Id`
-- Rep / User: rows = `Full_Name`, Detail = `User_Id`
+Entity reference:
+| Entity | rows shelf | Detail (ID) field |
+|---|---|---|
+| Rep / User | `Full_Name` / `User` | `User_Id` / `User` |
+| Opportunity | owner name or opp name | `Opportunity_Id1` / `Opportunity1` |
+| Account | account name | `Account_Id` / `Account` |
+
+---
+
+### Action type 1 — Salesforce Action (`recordaction`) — PREFERRED for call/task/email
+
+Use this when the user wants to trigger a native Salesforce action (Log a Call, New Task, Send Email). Opens the platform's native action panel pre-wired to the clicked record.
 
 ```python
 import json
 
+def viz_sf_action_interaction(click_field_name, click_object_name,
+                               record_id_field_name, record_id_object_name,
+                               sf_actions, display_category="Discrete"):
+    """
+    Creates a Salesforce Action interaction (actionType: "recordaction").
+    Opens the Salesforce native action panel on mark click.
+
+    click_field_name / click_object_name:
+        The display field on the rows shelf (e.g. Full_Name / User).
+    record_id_field_name / record_id_object_name:
+        The SF record ID field in Detail (e.g. User_Id / User, Opportunity_Id1 / Opportunity1).
+        Must be a real Salesforce record ID — the platform uses it to wire the action to the record.
+    sf_actions: list of Salesforce action API names. Common values:
+        "Global.LogACall"   — Log a Call
+        "Global.NewTask"    — New Task
+        "Global.SendEmail"  — Send Email
+
+    Encoding: fieldKey values are raw JSON strings on write (not HTML-encoded).
+    The GET response returns them HTML-entity-encoded — storage format only.
+    """
+    def fk(field_name, object_name):
+        return json.dumps({
+            "displayCategory":     display_category,
+            "fieldName":           field_name,
+            "objectName":          object_name,
+            "role":                "Dimension",
+            "type":                "Field",
+            "disambiguationIndex": 0,
+        }, separators=(",", ":"))
+
+    return {
+        "actionType": "recordaction",
+        "eventType":  "click",
+        "parameters": {
+            "actions":  [{"apiName": a} for a in sf_actions],
+            "field":    {"fieldKey": fk(click_field_name,     click_object_name)},
+            "recordId": {"fieldKey": fk(record_id_field_name, record_id_object_name)},
+        },
+    }
+
+# Example — Log a Call on rep bar click:
+viz_sf_action_interaction(
+    click_field_name="Full_Name",   click_object_name="User",
+    record_id_field_name="User_Id", record_id_object_name="User",
+    sf_actions=["Global.LogACall"],
+)
+
+# Example — Log a Call on opportunity bar click:
+viz_sf_action_interaction(
+    click_field_name="Opportunity_Id1",   click_object_name="Opportunity1",
+    record_id_field_name="Opportunity_Id1", record_id_object_name="Opportunity1",
+    sf_actions=["Global.LogACall"],
+)
+```
+
+---
+
+### Action type 2 — Navigate to URL (`navigate`) — for list views, external links
+
+Use this when the user wants to open any URL (Salesforce list view, external page, filtered report). Use `{{fieldApiName}}` anywhere in the URL to substitute the clicked value.
+
+```python
 def viz_url_interaction(field_name, object_name, field_label, url,
                         action_label="Open URL", display_category="Discrete"):
     """
-    Creates a click-to-URL interaction for a viz.
-    field_name / object_name: must match a field actually on the viz — if not present, silently ignored.
-    url: destination URL. Use relative paths (/lightning/...) or full URLs.
-         Use {{fieldApiName}} anywhere in the URL to substitute the clicked value at runtime.
-         Example: "/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}"
-    action_label: label shown on the action chip in the UI (e.g. "Log a Call", "Set Up Call").
+    Creates a click-to-URL interaction (actionType: "navigate").
+    url: relative (/lightning/...) or full URL.
+         Use {{fieldApiName}} to substitute the clicked field's value at runtime.
+         Example: "/lightning/r/Opportunity/{{Opportunity_Id1}}/view"
 
-    Confirmed encoding (tested via API, 2026-05-28):
-      - On WRITE (POST/PATCH): both field and destination.target are raw JSON strings
-      - On READ (GET): the API returns destination.target HTML-entity-encoded (&quot;),
-        field also HTML-encoded on GET — this is storage format only, NOT the write format
-      - Do NOT HTML-encode anything on write — causes INVALID_VISUALIZATION_METADATA
+    Encoding: both field and destination.target are raw JSON strings on write.
+    GET returns destination.target HTML-entity-encoded — do NOT use that format on write.
     """
     field_json = json.dumps({
-        "displayCategory":     display_category,
-        "fieldName":           field_name,
-        "label":               field_label,
-        "objectName":          object_name,
-        "role":                "Dimension",
-        "type":                "Field",
-        "disambiguationIndex": 0,
+        "displayCategory": display_category, "fieldName": field_name,
+        "label": field_label, "objectName": object_name,
+        "role": "Dimension", "type": "Field", "disambiguationIndex": 0,
     }, separators=(",", ":"))
-
     url_json = json.dumps({"url": [url]}, separators=(",", ":"))
-
     return {
-        "actionType": "navigate",
-        "eventType":  "click",
+        "actionType": "navigate", "eventType": "click",
         "parameters": {
-            "destination": {
-                "target": url_json,    # raw JSON string on write
-                "type":   "url",       # use "page" + UUID for internal dashboard navigation
-            },
-            "field": field_json,       # raw JSON string on write
+            "destination": {"target": url_json, "type": "url"},
+            "field": field_json,
             "label": action_label,
         },
     }
 
-# ── Common action URL patterns ────────────────────────────────────────────────
-# Open Salesforce record list:
-#   url = "/lightning/o/Opportunity/list"
-#
-# Log a call (pre-fill Related To with clicked Opportunity ID):
-#   url = "/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}"
-#
-# Set up call (pre-fill Subject with clicked Rep Name):
-#   url = "/lightning/o/Task/new?defaultFieldValues=Subject=Set up call with {{Full_Name}}"
-#
-# Open specific record (if field is a Salesforce ID):
-#   url = "/lightning/r/Opportunity/{{Opportunity_Id1}}/view"
-#
-# {{fieldApiName}} is substituted with the clicked bar's value at runtime.
-# Use the fieldName as it appears in the viz's fields dict (e.g. "Opportunity_Id1", "Full_Name").
+# Common URL patterns:
+#   Open record:      "/lightning/r/Opportunity/{{Opportunity_Id1}}/view"
+#   Open list view:   "/lightning/o/Opportunity/list"
+#   New task (URL):   "/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}"
+```
 
-# ── Apply to an existing viz via PATCH ────────────────────────────────────────
-# PATCH requires: label + visualSpecification (minimum). Easiest: GET the viz,
-# swap interactions, strip read-only fields, send the full payload.
+---
 
+### Apply to an existing viz via PATCH
+
+```python
 def patch_viz_interactions(viz_name, interactions, base_viz_url, headers):
+    """PATCH requires full viz payload — interactions-only PATCH is rejected."""
     r = requests.get(f"{base_viz_url}/tableau/visualizations/{viz_name}", headers=headers)
     r.raise_for_status()
     viz = r.json()
     viz["interactions"] = interactions
-    # Strip read-only top-level fields
     for key in ("id", "createdBy", "createdDate", "lastModifiedBy", "lastModifiedDate",
                 "permissions", "sourceVersion"):
         viz.pop(key, None)
-    # Keep dataSource + workspace but strip sub-fields the API rejects
     for block in ("dataSource", "workspace"):
         if block in viz:
             viz[block] = {k: v for k, v in viz[block].items() if k in ("name", "type")}
-    # Strip id from view and fields entries
     if "view" in viz:
-        viz["view"].pop("id", None)
-        viz["view"].pop("isOriginal", None)
+        viz["view"].pop("id", None); viz["view"].pop("isOriginal", None)
     for f in viz.get("fields", {}).values():
         f.pop("id", None)
     resp = requests.patch(f"{base_viz_url}/tableau/visualizations/{viz_name}",
@@ -1707,20 +1754,6 @@ def patch_viz_interactions(viz_name, interactions, base_viz_url, headers):
         print(f"  ✅ Action applied to {viz_name}")
     else:
         print(f"  ❌ {resp.status_code} {resp.text[:300]}")
-
-# Example — log a call on opportunity bar click:
-patch_viz_interactions(
-    viz_name="detail_chart_fg",
-    interactions=[viz_url_interaction(
-        field_name="Opportunity_Id1",
-        object_name="Opportunity1",
-        field_label="Opportunity Id",
-        url="/lightning/o/Task/new?defaultFieldValues=WhatId={{Opportunity_Id1}}",
-        action_label="Log a Call",
-    )],
-    base_viz_url=BASE_VIZ,
-    headers=SF_HDRS,
-)
 ```
 
 **When adding actions during initial viz creation**, include `interactions` directly in the `create_visualization` payload — same structure, no separate PATCH needed.
@@ -2066,13 +2099,14 @@ Workspace: {workspace_name}
 60. **Extension widget `source` field causes 403 ACCESS_DENIED on PATCH** — Even with edit permissions, including a `source` object on an extension-type widget in a PATCH payload triggers `ACCESS_DENIED`. Omit `source` entirely from extension widgets. The API infers the component from `parameters.fullyQualifiedName`. Non-extension widgets (metric, visualization, filter, text) keep their `source` but have `label` and `type` stripped from it (pitfall #59).
 61. **Dashboard POST also rejects `source.type` on widget source objects** — same `type` stripping rule applies on POST, not just PATCH. Strip `label` and `type` from every widget's `source` before submitting. The `dash_metric()` and `dash_viz()` helpers in Step N do NOT include `type` in their `source` objects; follow that pattern on POST.
 62. **`sortOrders` in `visualSpecification` causes `JSON_PARSER_ERROR`** — `sortOrders` belongs in `view.viewSpecification`, not directly in `visualSpecification`. The `create_visualization()` helper in Step M already places it correctly under `view.viewSpecification.sortOrders`. Do not move it or duplicate it into `visualSpecification`.
-63. **Viz click actions live in `interactions`, not `actions`** — the `actions` array is unrelated to mark-click behavior and always stays `[]`. Click-to-URL and click-to-page actions go in `interactions[]` with `eventType: "click"`.
-64. **`interactions[].parameters` values are raw JSON strings on write; the API HTML-encodes `destination.target` on storage** — On POST/PATCH, send both `field` and `destination.target` as plain JSON strings (no HTML-encoding). The GET response returns `destination.target` HTML-entity-encoded (`&quot;`) but `field` as a raw JSON string — this asymmetry is API behaviour, not a bug. Sending HTML-encoded values on write causes `INVALID_VISUALIZATION_METADATA`. Confirmed via API test (2026-05-28).
-65. **`type: "url"` for external links; `type: "page"` for internal dashboard navigation** — page navigation requires a UUID as the target value instead of a URL string.
-66. **The `field` in an interaction must match a field actually on the viz** — `fieldName` + `objectName` must correspond to a field in the viz's `fields` dict. If the field isn't on the viz, the action is silently ignored — no error returned.
-67. **Viz PATCH requires `label` + `visualSpecification` at minimum — interactions-only PATCH is rejected** — Unlike dashboards (which accept partial PATCH), viz PATCH requires at least `label` and `visualSpecification`. Easiest pattern: GET the full viz, swap `interactions`, strip read-only fields (`id`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `permissions`, `sourceVersion`, view `id`/`isOriginal`, field `id`s), keep `dataSource` and `workspace` with only `name`/`type` sub-fields, then PATCH with the full payload.
-68. **`{{fieldApiName}}` in a URL is substituted at runtime with the clicked mark's value** — use the fieldName as it appears in the viz's `fields` dict (e.g. `{{Opportunity_Id1}}`, `{{Full_Name}}`). Works in any part of the URL including query params. Use relative URLs (`/lightning/o/Task/new?...`) — no org domain needed.
-69. **For "call rep" / "log call" actions, never use Full Name as the only dimension** — names are not unique. Always include the Salesforce ID field (e.g. `User_Id`, `Opportunity_Id1`) as a Detail field (in `fields` dict but NOT on rows/columns shelf). Use `{{ID_field}}` in the URL and the display name field as the `field` in the interaction. The ID in Detail is available for URL substitution even though it's not visible on the chart.
+63. **Viz click actions live in `interactions`, not `actions`** — the `actions` array is unrelated to mark-click behavior and always stays `[]`. All mark-click actions go in `interactions[]` with `eventType: "click"`.
+64. **Use `recordaction` for native SF actions (Log a Call, New Task, Send Email); use `navigate` for URLs** — `recordaction` opens Salesforce's native action panel and requires a real SF record ID in `parameters.recordId`. `navigate` opens any URL and supports `{{fieldName}}` substitution. Sending `navigate` for a "Log a Call" request is wrong — use `recordaction` with `"Global.LogACall"`.
+65. **`recordaction` encoding: `fieldKey` values are raw JSON strings on write** — both `parameters.field.fieldKey` and `parameters.recordId.fieldKey` are JSON-stringified field descriptor objects (plain quotes, not HTML-encoded). The GET response returns them HTML-entity-encoded — that is storage format only, not the write format.
+66. **`navigate` encoding: both `field` and `destination.target` are raw JSON strings on write** — GET returns `destination.target` HTML-entity-encoded but `field` as raw JSON. Do NOT HTML-encode either on write — causes `INVALID_VISUALIZATION_METADATA`.
+67. **The `field` / `fieldKey` in an interaction must reference a field in the viz's `fields` dict** — if the fieldName+objectName combo isn't present, the action is silently ignored. For `recordaction`, `recordId.fieldKey` must also be in `fields`.
+68. **Viz PATCH requires the full payload — interactions-only PATCH is rejected** — GET the viz, swap `interactions`, strip read-only fields (`id`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `permissions`, `sourceVersion`, view `id`/`isOriginal`, field `id`s), keep `dataSource`/`workspace` with only `name`/`type`, then PATCH with the full payload.
+69. **`{{fieldApiName}}` in a `navigate` URL substitutes the clicked mark's value at runtime** — use relative URLs (`/lightning/...`), no org domain needed. Only works for `navigate` type — `recordaction` uses `recordId.fieldKey` instead.
+70. **For any call/task/email action on a person or record, always pair display name + SF ID** — put the human-readable name on rows (readable bar labels) and add the SF record ID as a Detail field (in `fields` dict, NOT on any shelf). Use the display name as `field` / `click_field` and the ID field as `recordId` (for `recordaction`) or `{{ID_field}}` in the URL (for `navigate`). Names are not unique across orgs.
 
 ---
 
