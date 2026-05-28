@@ -67,6 +67,8 @@ def load_or_prompt_config():
     # Ensure scheme is present regardless of what the user pasted
     if not sf_login_url.startswith("http"):
         sf_login_url = "https://" + sf_login_url
+    # lightning.force.com is the UI domain — OAuth endpoints only exist on .my.salesforce.com
+    sf_login_url = sf_login_url.replace(".lightning.force.com", ".my.salesforce.com")
 
     client_id = input("Connected App Client ID (Consumer Key, ~100 chars): ").strip()
     if not client_id:
@@ -100,6 +102,8 @@ def main():
     sf_login_url  = cfg["sf_login_url"].rstrip("/")
     if not sf_login_url.startswith("http"):
         sf_login_url = "https://" + sf_login_url
+    # lightning.force.com is the UI domain — OAuth endpoints only exist on .my.salesforce.com
+    sf_login_url = sf_login_url.replace(".lightning.force.com", ".my.salesforce.com")
     client_id     = cfg["client_id"]
     client_secret = cfg["client_secret"]
 
