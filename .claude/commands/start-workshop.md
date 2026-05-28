@@ -116,6 +116,17 @@ START_DATE     = date(TODAY.year - 2, TODAY.month, 1)
 | Column/field labels | Business-friendly with spaces | `Deal Amount`, not `deal_amount` |
 | Timestamp (when needed) | `datetime.now().strftime("%Y%m%d%H%M%S")` | `20260302143022` |
 
+**Workshop mode overrides** (when USER_NAME is set from Step 1b):
+
+| Asset | Format | Example (USER_NAME="Gabe") |
+|---|---|---|
+| Workspace | `{user_slug}` | `gabe` |
+| Viz / Dashboard label | `{base_label}-{USER_NAME}` | `Pipeline Trend-Gabe` |
+| Viz / Dashboard apiName | `{user_slug}_{base_name}` | `gabe_pipeline_trend` |
+| Dashboard name | `{user_slug}_{use_case_slug}_dashboard` | `gabe_sales_pipeline_dashboard` |
+
+These rules apply to every asset created in the session: vizzes, dashboards, metrics, calc fields. The user's name makes it trivial to find all their assets and clean them up after the workshop.
+
 ---
 
 ## CONCIERGE OPTIMIZATION — DESIGN PRINCIPLES
@@ -305,9 +316,20 @@ else:
 
 Run with: `python3 _check_auth.py`
 
-**If auth succeeds** — tell the user:
+**If auth succeeds** — ask the user for their name before proceeding:
 
-> "Connected to [sf_instance]."
+> "Connected to [sf_instance]. What's your first name? I'll use it to create your personal workspace and tag all your assets."
+
+Wait for their reply. Store it as `USER_NAME` (raw, as they typed it — e.g. "Gabe").
+
+Derive:
+```python
+USER_NAME  = "Gabe"                                # as entered
+user_slug  = USER_NAME.lower().replace(" ", "_")   # e.g. "gabe"
+WORKSPACE_NAME = user_slug                         # personal workspace: "gabe"
+ASSET_SUFFIX   = f"-{USER_NAME}"                   # e.g. "-Gabe"  (appended to every label)
+ASSET_PREFIX   = f"{user_slug}_"                   # e.g. "gabe_"  (prepended to every apiName)
+```
 
 Then proceed to STEP 2-DISCOVER.
 
@@ -332,6 +354,27 @@ Then proceed to STEP 2-DISCOVER.
 ---
 
 ## STEP 2-DISCOVER — ORG DISCOVERY MODE
+
+### 2d-0 — Create or confirm the user's personal workspace
+
+Before listing models, create (or confirm existence of) the user's personal workspace:
+
+```python
+# Create personal workspace — 409 Conflict means it already exists, which is fine
+resp = requests.post(BASE_SEM + "/tableau/workspaces", headers=SF_HDRS,
+    json={"name": WORKSPACE_NAME, "label": USER_NAME})
+if resp.status_code == 201:
+    print(f"  ✅ Workspace created: {WORKSPACE_NAME}")
+elif resp.status_code == 409:
+    print(f"  ✅ Workspace already exists: {WORKSPACE_NAME}")
+else:
+    print(f"  ⚠️  Workspace: {resp.status_code} {resp.text[:200]}")
+```
+
+Tell the user:
+> "Your personal workspace **[USER_NAME]** is ready. All your assets will go there."
+
+---
 
 ### 2d-a — List existing semantic models
 
@@ -477,6 +520,17 @@ Wait for their answer, then set these variables and use them throughout all gene
 COMPANY_NAME = "Workshop"          # keep generic — not a real company
 USE_CASE     = "<their theme>"     # e.g. "Sales Pipeline", "Customer Success"
 PERSONA      = "<sensible default based on theme>"   # e.g. "VP of Sales", "Head of CS"
+
+# From Step 1b — already set at auth time:
+# USER_NAME      = "Gabe"
+# user_slug      = "gabe"
+# WORKSPACE_NAME = "gabe"          ← all assets go here
+# ASSET_SUFFIX   = "-Gabe"         ← appended to every label
+# ASSET_PREFIX   = "gabe_"         ← prepended to every apiName / name
+
+# Every asset label and name must include the user's identifier:
+#   label:   f"{base_label}{ASSET_SUFFIX}"     e.g. "Pipeline Trend-Gabe"
+#   name:    f"{ASSET_PREFIX}{base_name}"      e.g. "gabe_pipeline_trend"
 ```
 
 Do NOT ask for a company name, prospect name, demo story, or signal onset — this is a workshop, not a customer demo. Keep `COMPANY_NAME = "Workshop"` unless the user specifically provides one.
