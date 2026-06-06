@@ -38,28 +38,25 @@ next_demos.json
 *_fix.py
 
 # Throwaway helper/debug scripts generated during skill execution
-_check_auth.py
-_list_models.py
-_inspect_model.py
-_add_ext_to_dashboard.py
-_fix_lwc_test_dashboard.py
-_check_sdm_fields.py
-_auth_new_org.py
-_build_metrics.py
-_check_colors.py
-_check_d3.py
-_check_workspace_match.py
+# (all underscore-prefixed scripts are session artifacts — regenerated as needed)
+_add_*.py
+_auth_*.py
+_build_*.py
+_check_*.py
+_create_*.py
 _debug_*.py
-_exchange_code.py
+_deploy_*.py
+_diff_*.py
+_exchange_*.py
 _find_*.py
 _fix_*.py
 _get_*.py
-_list_dashboards.py
-_list_workspaces.py
+_inspect_*.py
+_list_*.py
 _patch_*.py
+_read_*.py
 _test_*.py
 _verify_*.py
-next_auth.py
 
 # SFDX / SF CLI generated dirs
 .sf/
