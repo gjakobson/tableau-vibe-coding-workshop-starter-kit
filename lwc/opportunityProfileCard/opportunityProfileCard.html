@@ -1,0 +1,135 @@
+<template>
+    <template lwc:if={isEmpty}>
+        <div class="card dark-card">
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M3 17l6-6 4 4 8-8" />
+                        <path d="M21 10V3h-7" />
+                    </svg>
+                </div>
+                <p class="empty-title">No Opportunity Selected</p>
+                <p class="empty-sub">Select an opportunity from your dashboard to view details</p>
+            </div>
+        </div>
+    </template>
+
+    <template lwc:if={isLoading}>
+        <div class="card dark-card">
+            <div class="empty-state">
+                <div class="spinner"></div>
+                <p class="empty-title">Loading Opportunity Profile...</p>
+            </div>
+        </div>
+    </template>
+
+    <template lwc:if={hasError}>
+        <div class="card dark-card">
+            <div class="empty-state">
+                <p class="empty-title error-text">Error Loading Opportunity</p>
+                <p class="empty-sub">{errorMessage}</p>
+            </div>
+        </div>
+    </template>
+
+    <template lwc:if={isReady}>
+        <div class="card dark-card">
+            <div class="card-header">
+                <div class="avatar-section">
+                    <div class="avatar">{opportunityInitials}</div>
+                    <div class="name-block">
+                        <h2 class="record-name">{opportunityName}</h2>
+                        <div class="badges-row">
+                            <span class={stageBadgeClass}>{stageDisplay}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <template lwc:if={hasOpportunityOptions}>
+                        <div class="opportunity-picker-wrap">
+                            <label class="opportunity-picker-label">Opportunity</label>
+                            <select
+                                class="opportunity-picker"
+                                value={selectedOpportunityKey}
+                                onchange={handleOpportunityChange}
+                            >
+                                <template for:each={opportunityOptions} for:item="opt">
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                </template>
+                            </select>
+                        </div>
+                    </template>
+                    <div class={activityStatusClass}>
+                        <span class="activity-dot"></span>
+                        {activityStatusLabel}
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="metrics-row">
+                <div class="metric">
+                    <span class="metric-label">Total Amount</span>
+                    <span class="metric-value accent-blue">{totalAmountDisplay}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Expected Revenue</span>
+                    <span class="metric-value accent-green">{expectedRevenueDisplay}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Probability</span>
+                    <span class="metric-value accent-purple">{probabilityDisplay}</span>
+                </div>
+            </div>
+
+            <div class="scores-section">
+                <div class="score-row">
+                    <div class="score-header">
+                        <span class="score-label">Win Probability</span>
+                        <span class="score-value">{probabilityDisplay}</span>
+                    </div>
+                    <div class="score-bar-track">
+                        <div class={winProbBarClass} style={winProbBarStyle}></div>
+                    </div>
+                </div>
+                <div class="score-row">
+                    <div class="score-header">
+                        <span class="score-label">Deal Health Score</span>
+                        <span class="score-value">{dealHealthDisplay}</span>
+                    </div>
+                    <div class="score-bar-track">
+                        <div class={dealHealthBarClass} style={dealHealthBarStyle}></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Owner</span>
+                    <span class="detail-value">{ownerName}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Lead Source</span>
+                    <span class="detail-value">{leadSource}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Close Date</span>
+                    <span class="detail-value">{closeDateDisplay}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Days To Close</span>
+                    <span class="detail-value">{daysToCloseDisplay}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Next Step</span>
+                    <span class="detail-value">{nextStep}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Opportunity Id</span>
+                    <span class="detail-value detail-id">{opportunityId}</span>
+                </div>
+            </div>
+        </div>
+    </template>
+</template>

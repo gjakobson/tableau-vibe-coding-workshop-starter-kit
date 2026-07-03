@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Opportunity Profile Card</masterLabel>
+    <description>Dark-themed opportunity profile card driven by Tableau Next dashboard selection.</description>
+    <targets>
+        <target>analytics__Dashboard</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="analytics__Dashboard">
+            <property name="sdmName" type="String" label="Semantic Model API Name" default="WorkshopModel"/>
+            <property name="sdoName" type="String" label="SDO API Name" default="Opportunity"/>
+            <property name="queryLimit" type="Integer" label="Query Limit" default="500"/>
+            <property name="nameField" type="String" label="Name Field API Name" default="Name"/>
+            <property name="stageField" type="String" label="Stage Field API Name" default="Opportunity_Stage"/>
+            <property name="amountField" type="String" label="Amount Field API Name" default="Total_Amount"/>
+            <property name="expectedRevenueField" type="String" label="Expected Revenue Field API Name" default="Expected_Revenue_Amount"/>
+            <property name="probabilityField" type="String" label="Probability Field API Name" default="Probability"/>
+            <property name="ownerField" type="String" label="Owner Field API Name" default="OwnerUser"/>
+            <property name="leadSourceField" type="String" label="Lead Source Field API Name" default="Lead_Source"/>
+            <property name="closeDateField" type="String" label="Close Date Field API Name" default="Close_Date"/>
+            <property name="nextStepField" type="String" label="Next Step Field API Name" default="Next_Step"/>
+            <property name="idField" type="String" label="Opportunity Id Field API Name" default="Opportunity_Id"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
