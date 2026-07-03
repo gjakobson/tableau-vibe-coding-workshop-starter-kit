@@ -23,6 +23,12 @@ Wait for the user's reply before proceeding.
 
 ---
 
+## If the user asks for Salesforce actions on a card/table extension
+
+Read `Reference Files/ref-lwc-salesforce-actions.md` and follow that flow as a separate add-on step after the base extension is working.
+
+---
+
 ## VIZ-EXT-b — Generate the LWC files
 
 Component name convention: `{userSlug}{ChartType}` (e.g. `gabeTreemap`, `firstMeridianSunburst`).

@@ -59,6 +59,25 @@
                             </select>
                         </div>
                     </template>
+                    <template lwc:if={hasActionOptions}>
+                        <div class="action-picker-wrap">
+                            <label class="opportunity-picker-label">Salesforce Action</label>
+                            <div class="action-controls">
+                                <select
+                                    class="opportunity-picker action-picker"
+                                    value={selectedActionApiName}
+                                    onchange={handleActionChange}
+                                >
+                                    <template for:each={actionOptions} for:item="opt">
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    </template>
+                                </select>
+                                <button class="run-action-btn" onclick={handleRunAction} disabled={isRunActionDisabled}>
+                                    Run
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                     <div class={activityStatusClass}>
                         <span class="activity-dot"></span>
                         {activityStatusLabel}

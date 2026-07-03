@@ -22,6 +22,8 @@
             <property name="closeDateField" type="String" label="Close Date Field API Name" default="Close_Date"/>
             <property name="nextStepField" type="String" label="Next Step Field API Name" default="Next_Step"/>
             <property name="idField" type="String" label="Opportunity Id Field API Name" default="Opportunity_Id"/>
+            <property name="actionList" type="String" label="Quick Action API Names (comma-separated)" default="Global.LogACall,Global.NewTask,Global.NewEvent"/>
+            <property name="defaultAction" type="String" label="Default Quick Action API Name" default="Global.LogACall"/>
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

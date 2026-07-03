@@ -32,6 +32,8 @@ export default class OpportunityProfileCard extends LightningElement {
     @api closeDateField = "Close_Date";
     @api nextStepField = "Next_Step";
     @api idField = "Opportunity_Id";
+    @api actionList = "Global.LogACall,Global.NewTask,Global.NewEvent";
+    @api defaultAction = "Global.LogACall";
 
     @track _phase = "empty";
     @track errorMessage = "";
@@ -48,6 +50,8 @@ export default class OpportunityProfileCard extends LightningElement {
     @track probability = 0;
     @track opportunityOptions = [];
     @track selectedOpportunityKey = "";
+    @track actionOptions = [];
+    @track selectedActionApiName = "";
 
     _unsubscribes = [];
     _timeoutId = null;
@@ -59,6 +63,8 @@ export default class OpportunityProfileCard extends LightningElement {
     get isReady() { return this._phase === "ready"; }
     get hasError() { return this._phase === "error"; }
     get hasOpportunityOptions() { return this.opportunityOptions.length > 0; }
+    get hasActionOptions() { return this.actionOptions.length > 0; }
+    get isRunActionDisabled() { return !this.opportunityId || !this.selectedActionApiName; }
 
     get opportunityInitials() {
         if (!this.opportunityName) return "?";
@@ -162,6 +168,7 @@ export default class OpportunityProfileCard extends LightningElement {
 
     _initialize() {
         if (!this.sdk) return;
+        this._buildActionOptions();
         this._subscribeEvents();
         this._registerQuery();
     }
@@ -291,6 +298,16 @@ export default class OpportunityProfileCard extends LightningElement {
         this._applySelectedRow(selected);
     }
 
+    handleActionChange(event) {
+        this.selectedActionApiName = event.target.value;
+    }
+
+    handleRunAction() {
+        if (this.isRunActionDisabled) return;
+        const quickActionUrl = `/lightning/action/quick/${this.selectedActionApiName}?recordId=${encodeURIComponent(this.opportunityId)}`;
+        window.location.assign(quickActionUrl);
+    }
+
     _applySelectedRow(row) {
         if (!row) return;
         const i = this._fieldIndex;
@@ -311,5 +328,29 @@ export default class OpportunityProfileCard extends LightningElement {
         if (val >= 1e6) return `$${(val / 1e6).toFixed(1)}M`;
         if (val >= 1e3) return `$${(val / 1e3).toFixed(0)}K`;
         return `$${Math.round(val).toLocaleString()}`;
+    }
+
+    _buildActionOptions() {
+        const raw = (this.actionList || "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+        this.actionOptions = raw.map((apiName) => ({
+            label: this._toActionLabel(apiName),
+            value: apiName
+        }));
+        if (this.actionOptions.find((o) => o.value === this.defaultAction)) {
+            this.selectedActionApiName = this.defaultAction;
+        } else {
+            this.selectedActionApiName = this.actionOptions[0]?.value || "";
+        }
+    }
+
+    _toActionLabel(apiName) {
+        const tail = apiName.includes(".") ? apiName.split(".").pop() : apiName;
+        return tail
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^./, (m) => m.toUpperCase())
+            .trim();
     }
 }
