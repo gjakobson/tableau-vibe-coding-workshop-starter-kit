@@ -1,0 +1,34 @@
+<template>
+    <div class="chat-card">
+        <h3>Opportunity Chat (Add-On)</h3>
+
+        <template lwc:if={hasRows}>
+            <label>Opportunity</label>
+            <select value={selectedOpportunityKey} onchange={handleOpportunityChange}>
+                <template for:each={opportunityOptions} for:item="opt">
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                </template>
+            </select>
+        </template>
+
+        <label>Ask a question</label>
+        <textarea
+            value={question}
+            onchange={handleQuestionChange}
+            placeholder="What are the risks with this opportunity and what should I do next?"
+        ></textarea>
+
+        <button onclick={handleAsk} disabled={isAskDisabled}>
+            <template lwc:if={isBusy}>Thinking...</template>
+            <template lwc:else>Ask</template>
+        </button>
+
+        <template lwc:if={errorMessage}>
+            <p class="error">{errorMessage}</p>
+        </template>
+
+        <template lwc:if={answer}>
+            <div class="answer">{answer}</div>
+        </template>
+    </div>
+</template>

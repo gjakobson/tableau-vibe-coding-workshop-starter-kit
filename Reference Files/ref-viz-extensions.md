@@ -29,6 +29,12 @@ Read `Reference Files/ref-lwc-salesforce-actions.md` and follow that flow as a s
 
 ---
 
+## If the user asks for LLM chat on a card/table extension
+
+Read `Reference Files/ref-lwc-llm-chat.md` and follow that as a separate add-on step after the base extension is working.
+
+---
+
 ## VIZ-EXT-b — Generate the LWC files
 
 Component name convention: `{userSlug}{ChartType}` (e.g. `gabeTreemap`, `firstMeridianSunburst`).

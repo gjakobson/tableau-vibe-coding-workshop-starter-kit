@@ -149,6 +149,43 @@
                     <span class="detail-value detail-id">{opportunityId}</span>
                 </div>
             </div>
+
+            <div class="divider"></div>
+
+            <div class="chat-section">
+                <div class="chat-title">Einstein Models API</div>
+                <textarea
+                    class="chat-input"
+                    value={chatQuestion}
+                    oninput={handleChatQuestionChange}
+                    placeholder="Ask about this opportunity (risk, next best action, coaching advice)..."
+                ></textarea>
+                <button class="ask-btn" onclick={handleAskChat} disabled={isAskDisabled}>
+                    <template lwc:if={isChatBusy}>Thinking...</template>
+                    <template lwc:else>Ask</template>
+                </button>
+                <template lwc:if={chatError}>
+                    <p class="chat-error">{chatError}</p>
+                </template>
+                <template lwc:if={chatAnswer}>
+                    <div class="chat-answer">{chatAnswer}</div>
+                </template>
+                <template lwc:if={showInlineCallAction}>
+                    <div class="inline-call-wrap">
+                        <span class="inline-call-text">Would you like to set up a call with the customer?</span>
+                        <button class="inline-call-link" onclick={handleInlineSetUpCall} disabled={isInlineCallDisabled}>Set up call now</button>
+                    </div>
+                </template>
+                <template lwc:if={showCallConfirmation}>
+                    <div class="call-confirm-wrap">
+                        <p class="call-confirm-text">{callSuggestionText}</p>
+                        <div class="call-confirm-actions">
+                            <button class="call-confirm-btn" onclick={handleCallSuggestionYes}>Yes</button>
+                            <button class="call-confirm-btn secondary" onclick={handleCallSuggestionNo}>No</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </div>
     </template>
 </template>

@@ -1,0 +1,68 @@
+.chat-card {
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    padding: 14px;
+    color: #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+h3 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+}
+
+label {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+select,
+textarea {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: #111827;
+    color: #e5e7eb;
+    padding: 8px;
+    font-size: 12px;
+}
+
+textarea {
+    min-height: 84px;
+    resize: vertical;
+}
+
+button {
+    align-self: flex-start;
+    border-radius: 6px;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.2);
+    color: #dbeafe;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.error {
+    margin: 0;
+    color: #fca5a5;
+    font-size: 12px;
+}
+
+.answer {
+    white-space: pre-wrap;
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 12px;
+    line-height: 1.4;
+}

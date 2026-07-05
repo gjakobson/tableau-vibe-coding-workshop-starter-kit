@@ -1,4 +1,5 @@
 import { LightningElement, api, track } from "lwc";
+import chatOpportunity from "@salesforce/apex/OpportunityCardChatController.chatOpportunity";
 
 const SDK_EVENTS = {
     FILTER_CHANGE: "filterChange",
@@ -14,6 +15,7 @@ const LIFE_CYCLE_EVENTS = {
 };
 
 const QUERY_LIMIT_DEFAULT = 500;
+const CALL_SUGGESTION = "Would you like to set up a call with the customer?";
 
 export default class OpportunityProfileCard extends LightningElement {
     @api sdk;
@@ -34,6 +36,7 @@ export default class OpportunityProfileCard extends LightningElement {
     @api idField = "Opportunity_Id";
     @api actionList = "Global.LogACall,Global.NewTask,Global.NewEvent";
     @api defaultAction = "Global.LogACall";
+    @api debugMode = false;
 
     @track _phase = "empty";
     @track errorMessage = "";
@@ -52,6 +55,11 @@ export default class OpportunityProfileCard extends LightningElement {
     @track selectedOpportunityKey = "";
     @track actionOptions = [];
     @track selectedActionApiName = "";
+    @track chatQuestion = "";
+    @track chatAnswer = "";
+    @track chatError = "";
+    @track isChatBusy = false;
+    @track awaitingCallConfirmation = false;
 
     _unsubscribes = [];
     _timeoutId = null;
@@ -65,6 +73,11 @@ export default class OpportunityProfileCard extends LightningElement {
     get hasOpportunityOptions() { return this.opportunityOptions.length > 0; }
     get hasActionOptions() { return this.actionOptions.length > 0; }
     get isRunActionDisabled() { return !this.opportunityId || !this.selectedActionApiName; }
+    get isAskDisabled() { return !this.opportunityId || !this.chatQuestion.trim() || this.isChatBusy; }
+    get showCallConfirmation() { return !!this.chatAnswer && this.awaitingCallConfirmation; }
+    get callSuggestionText() { return CALL_SUGGESTION; }
+    get showInlineCallAction() { return !!this.chatAnswer; }
+    get isInlineCallDisabled() { return !this.opportunityId; }
 
     get opportunityInitials() {
         if (!this.opportunityName) return "?";
@@ -226,6 +239,7 @@ export default class OpportunityProfileCard extends LightningElement {
     _processSdkRows(payload) {
         try {
             const rows = payload?.rows || payload?.data || payload;
+            this._debug("dataUpdate rows received", Array.isArray(rows) ? rows.length : "n/a");
             if (!Array.isArray(rows) || rows.length === 0) {
                 this.opportunityOptions = [];
                 this.selectedOpportunityKey = "";
@@ -277,8 +291,13 @@ export default class OpportunityProfileCard extends LightningElement {
             this._applySelectedRow(selectedRow);
 
             this._phase = "ready";
+            this._debug("selected opportunity", {
+                opportunityId: this.opportunityId,
+                opportunityName: this.opportunityName
+            });
             this.sdk?.actions?.notifyLifecycleChange?.(LIFE_CYCLE_EVENTS.LOADED);
         } catch (err) {
+            this._debug("processSdkRows error", err);
             this.errorMessage = err.message || String(err);
             this._phase = "error";
             this.sdk?.actions?.notifyLifecycleChange?.(LIFE_CYCLE_EVENTS.ERROR);
@@ -305,7 +324,64 @@ export default class OpportunityProfileCard extends LightningElement {
     handleRunAction() {
         if (this.isRunActionDisabled) return;
         const quickActionUrl = `/lightning/action/quick/${this.selectedActionApiName}?recordId=${encodeURIComponent(this.opportunityId)}`;
-        window.location.assign(quickActionUrl);
+        window.open(quickActionUrl, "_blank", "noopener,noreferrer");
+    }
+
+    handleChatQuestionChange(event) {
+        this.chatQuestion = event.target.value || "";
+    }
+
+    async handleAskChat() {
+        const inputEl = this.template.querySelector(".chat-input");
+        const liveQuestion = (inputEl?.value || this.chatQuestion || "").trim();
+        this.chatQuestion = liveQuestion;
+        if (this.awaitingCallConfirmation && this._isAffirmative(liveQuestion)) {
+            this._openQuickActionInNewTab("Global.LogACall");
+            this.chatAnswer = `${this.chatAnswer}\n\nOpening "Log a Call" in a new tab now.`;
+            this.chatQuestion = "";
+            this.awaitingCallConfirmation = false;
+            return;
+        }
+        if (this.awaitingCallConfirmation && this._isNegative(liveQuestion)) {
+            this.chatAnswer = `${this.chatAnswer}\n\nNo problem. I will not open a call action.`;
+            this.chatQuestion = "";
+            this.awaitingCallConfirmation = false;
+            return;
+        }
+        this._debug("chat submit captured", {
+            inputElementFound: !!inputEl,
+            inputElementValue: inputEl?.value || "",
+            liveQuestion,
+            hasOpportunityId: !!this.opportunityId,
+            isChatBusy: this.isChatBusy
+        });
+        if (!this.opportunityId || !liveQuestion || this.isChatBusy) return;
+        this.chatError = "";
+        this.isChatBusy = true;
+        try {
+            const payload = {
+                opportunityId: this.opportunityId,
+                opportunityName: this.opportunityName,
+                stage: this.stageName,
+                amount: this.totalAmount,
+                probability: this.probability,
+                leadSource: this.leadSource,
+                nextStep: this.nextStep,
+                userQuestion: liveQuestion
+            };
+            this._debug("chat payload", payload);
+            const response = await chatOpportunity(payload);
+            this._debug("chat response", response);
+            const baseAnswer = response?.answer || "No answer returned.";
+            this.chatAnswer = baseAnswer;
+            this.awaitingCallConfirmation = true;
+            this.chatQuestion = "";
+        } catch (err) {
+            this._debug("chat error", err);
+            this.chatError = err?.body?.message || err?.message || "Unable to run chat.";
+        } finally {
+            this.isChatBusy = false;
+        }
     }
 
     _applySelectedRow(row) {
@@ -352,5 +428,50 @@ export default class OpportunityProfileCard extends LightningElement {
             .replace(/([A-Z])/g, " $1")
             .replace(/^./, (m) => m.toUpperCase())
             .trim();
+    }
+
+    _isAffirmative(input) {
+        const normalized = String(input || "").trim().toLowerCase();
+        return ["yes", "y", "yes please", "sure", "ok", "okay"].includes(normalized);
+    }
+
+    _isNegative(input) {
+        const normalized = String(input || "").trim().toLowerCase();
+        return ["no", "n", "no thanks", "not now"].includes(normalized);
+    }
+
+    _openQuickActionInNewTab(actionApiName) {
+        if (!this.opportunityId || !actionApiName) return;
+        const quickActionPath = `/lightning/action/quick/${actionApiName}?recordId=${encodeURIComponent(this.opportunityId)}`;
+        const absoluteUrl = new URL(quickActionPath, window.location.origin).toString();
+
+        // In dashboard extension iframes, use top window when possible so the new tab
+        // isn't captured/reused by the embedded frame context.
+        const launcher = window.top && window.top !== window ? window.top : window;
+        launcher.open(absoluteUrl, "_blank", "noopener,noreferrer");
+    }
+
+    handleCallSuggestionYes() {
+        if (!this.awaitingCallConfirmation) return;
+        this._openQuickActionInNewTab("Global.LogACall");
+        this.chatAnswer = `${this.chatAnswer}\n\nOpening "Log a Call" in a new tab now.`;
+        this.awaitingCallConfirmation = false;
+    }
+
+    handleCallSuggestionNo() {
+        if (!this.awaitingCallConfirmation) return;
+        this.chatAnswer = `${this.chatAnswer}\n\nNo problem. I will not open a call action.`;
+        this.awaitingCallConfirmation = false;
+    }
+
+    handleInlineSetUpCall() {
+        if (!this.opportunityId) return;
+        this._openQuickActionInNewTab("Global.LogACall");
+    }
+
+    _debug(msg, data) {
+        if (!this.debugMode) return;
+        // eslint-disable-next-line no-console
+        console.log("[opportunityProfileCard]", msg, data ?? "");
     }
 }

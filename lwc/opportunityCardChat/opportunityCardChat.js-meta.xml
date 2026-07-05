@@ -2,8 +2,8 @@
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
-    <masterLabel>Opportunity Profile Card</masterLabel>
-    <description>Dark-themed opportunity profile card driven by Tableau Next dashboard selection.</description>
+    <masterLabel>Opportunity Card Chat (Scaffold)</masterLabel>
+    <description>Optional LLM chat add-on scaffold for opportunity dashboard cards.</description>
     <targets>
         <target>analytics__Dashboard</target>
     </targets>
@@ -11,20 +11,14 @@
         <targetConfig targets="analytics__Dashboard">
             <property name="sdmName" type="String" label="Semantic Model API Name" default="WorkshopModel"/>
             <property name="sdoName" type="String" label="SDO API Name" default="Opportunity"/>
-            <property name="queryLimit" type="Integer" label="Query Limit" default="500"/>
+            <property name="queryLimit" type="Integer" label="Query Limit" default="200"/>
             <property name="nameField" type="String" label="Name Field API Name" default="Name"/>
             <property name="stageField" type="String" label="Stage Field API Name" default="Opportunity_Stage"/>
             <property name="amountField" type="String" label="Amount Field API Name" default="Total_Amount"/>
-            <property name="expectedRevenueField" type="String" label="Expected Revenue Field API Name" default="Expected_Revenue_Amount"/>
             <property name="probabilityField" type="String" label="Probability Field API Name" default="Probability"/>
-            <property name="ownerField" type="String" label="Owner Field API Name" default="OwnerUser"/>
             <property name="leadSourceField" type="String" label="Lead Source Field API Name" default="Lead_Source"/>
-            <property name="closeDateField" type="String" label="Close Date Field API Name" default="Close_Date"/>
             <property name="nextStepField" type="String" label="Next Step Field API Name" default="Next_Step"/>
             <property name="idField" type="String" label="Opportunity Id Field API Name" default="Opportunity_Id"/>
-            <property name="actionList" type="String" label="Quick Action API Names (comma-separated)" default="Global.LogACall,Global.NewTask,Global.NewEvent"/>
-            <property name="defaultAction" type="String" label="Default Quick Action API Name" default="Global.LogACall"/>
-            <property name="debugMode" type="Boolean" label="Enable Console Debug Logging" default="true"/>
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>
