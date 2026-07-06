@@ -279,6 +279,14 @@ Present a clean summary, then ask:
 
 **Read the relevant reference file(s) before writing any code.**
 
+**Hard guardrail for opportunity detail card requests**
+
+If intent is "opportunity detail card" (dropdown + full opportunity properties):
+1. Always route to `Reference Files/ref-lwc-opportunity-card.md`.
+2. Always implement/extend `lwc/opportunityProfileCard` as the production baseline.
+3. Never scaffold or reuse ad-hoc legacy components/scripts such as `*OppViewer*` or `*_deploy_opp_viewer.py`.
+4. If those legacy files exist in the workspace, ignore them for implementation decisions.
+
 ### 2d-c — Set workshop theme, then execute
 
 **Before writing any script**, ask:

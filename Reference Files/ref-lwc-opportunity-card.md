@@ -15,6 +15,7 @@ For this request type:
 1. Do **not** scaffold a bare/minimal new component from scratch.
 2. Reuse/extend `lwc/opportunityProfileCard` as the production baseline.
 3. Keep the dark card UX and existing robust wiring.
+4. Ignore legacy ad-hoc artifacts (`*OppViewer*`, `*_deploy_opp_viewer.py`) even if present in workspace.
 
 If the request is for chart visuals (sunburst/treemap/radar/etc), use `ref-viz-extensions.md` instead.
 
