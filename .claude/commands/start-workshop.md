@@ -270,9 +270,10 @@ Present a clean summary, then ask:
 > 2. Create new visualizations → read `Reference Files/ref-viz.md`
 > 3. Build a new dashboard → read `Reference Files/ref-dashboard.md`
 > 4. Add a custom viz extension (D3 chart) → read `Reference Files/ref-viz-extensions.md`
-> 5. Add a click action to a visualization → read `Reference Files/ref-viz-actions.md`
-> 6. Build a demo guide → read `Reference Files/ref-demo-guide.md`
-> 7. Do multiple of the above
+> 5. Add an opportunity detail card (dropdown + full properties) → read `Reference Files/ref-lwc-opportunity-card.md`
+> 6. Add a click action to a visualization → read `Reference Files/ref-viz-actions.md`
+> 7. Build a demo guide → read `Reference Files/ref-demo-guide.md`
+> 8. Do multiple of the above
 >
 > Reply with one or more numbers."
 
@@ -321,5 +322,6 @@ All implementation details, confirmed API patterns, and code helpers live in `Re
 | `ref-viz.md` | Creating or modifying visualizations |
 | `ref-viz-actions.md` | Adding click actions (Log a Call, navigate to URL) |
 | `ref-viz-extensions.md` | Building LWC + D3 custom chart extensions |
+| `ref-lwc-opportunity-card.md` | Building opportunity dropdown/detail cards (plain-English user prompts) |
 | `ref-dashboard.md` | Building or patching dashboards |
 | `ref-demo-guide.md` | Writing the demo guide document |

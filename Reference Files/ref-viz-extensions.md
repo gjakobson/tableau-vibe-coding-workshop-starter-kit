@@ -4,6 +4,51 @@ Read this file when the user wants a chart type not available natively in Tablea
 
 ---
 
+## CRITICAL routing rule (card/table vs chart)
+
+If the user asks for a **card/detail viewer/table-like extension** (for example:
+"select from a dropdown of opportunities and see all properties"),
+this is **NOT** a generic chart extension request.
+
+In that case:
+1. Do **not** scaffold a minimal new white-card LWC from scratch.
+2. Reuse or extend the existing production pattern in `lwc/opportunityProfileCard`.
+3. Keep dark theme, robust field mapping, action hooks, and filter-aware behavior.
+4. Deploy and patch dashboard placement with enough layout height.
+
+Use this intent mapping:
+- Chart request -> follow this file end-to-end.
+- Card/detail request -> use `opportunityProfileCard` pattern first, then optional add-ons.
+
+---
+
+## Quality bar for "Opportunity card with dropdown"
+
+When user asks for an opportunity selector card, acceptance criteria are:
+
+1. Dropdown populates from filter-aware SDK rows (not hardcoded options).
+2. Selected opportunity updates all displayed fields correctly.
+3. Layout is production-ready (not plain placeholder styling).
+4. Card includes all key opportunity properties configured via component properties.
+5. Dashboard tile is resized to avoid unusable inner-scroll behavior.
+6. If Salesforce actions are included, action launch behavior is verified in-context.
+
+If these are not met, do not present as complete.
+
+---
+
+## Recommended prompt text for this request type
+
+Use this exact instruction when a user asks for "dropdown + all properties" card behavior:
+
+> "Implement this using the existing `lwc/opportunityProfileCard` production pattern, not a new minimal scaffold.  
+> Keep it filter-aware via `registerFieldsForQuery` + `dataUpdate`.  
+> Preserve dark-card UX, robust field mapping, and configurable properties.  
+> Ensure dashboard layout height/rowspan is large enough to avoid inner scrolling.  
+> Deploy and validate in dashboard."
+
+---
+
 ## VIZ-EXT-a — Ask what chart type and what data
 
 > "What kind of chart would you like?
