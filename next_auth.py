@@ -116,7 +116,7 @@ def main():
             "client_id":             client_id,
             "redirect_uri":          CALLBACK_URL,
             "prompt":                "login consent",
-            "scope":                 "cdp_ingest_api cdp_query_api full sfap_api refresh_token",
+            "scope":                 "api cdp_ingest_api cdp_query_api sfap_api refresh_token",
             "code_challenge":        code_challenge,
             "code_challenge_method": "S256",
         })
