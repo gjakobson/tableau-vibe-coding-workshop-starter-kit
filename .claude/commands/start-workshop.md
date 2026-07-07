@@ -279,6 +279,18 @@ Present a clean summary, then ask:
 
 **Read the relevant reference file(s) before writing any code.**
 
+**Fast Path mode (default for options 1,2,3,4 together)**
+
+If the user selects multiple build options at once (especially `1,2,3,4`), execute in one pass but with strict deterministic gates:
+1. Build a single in-memory source of truth from the selected model: `MODEL_API_NAME`, SDO list, and exact field apiNames.
+2. Never hardcode model IDs or field apiNames from prior runs or other orgs.
+3. Create/patch assets in this order only: SDM updates → visualization #1 → validate renderability → remaining visualizations → dashboard assembly → optional D3 extension.
+4. Fail fast: if the first visualization POST fails or returns invalid payload errors, stop and fix before creating any additional assets.
+5. Do not use regex/string surgery to mutate metadata files or generated scripts when direct structured payload updates are possible.
+6. Keep scripts concise and stage-scoped; avoid giant monolithic scripts that combine unrelated retry logic in one file.
+7. For dashboard build, reference only visualization `name` values returned from successful POST responses in the same run.
+8. If any required field mapping is missing in the selected model, stop and ask the user before continuing.
+
 **Hard guardrail for opportunity detail card requests**
 
 If intent is "opportunity detail card" (dropdown + full opportunity properties):

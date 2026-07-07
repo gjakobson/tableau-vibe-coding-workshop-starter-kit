@@ -8,6 +8,19 @@
 
 This workflow ensures you discover available data, select appropriate chart types, use production-quality templates, and create dashboards that comply with the Tableau Next API.
 
+## Fast Path Execution (One-Pass Build)
+
+Use this mode when users ask for multiple steps at once (for example charts + dashboard + custom viz in one request). Keep speed high, but enforce these gates:
+
+1. **Single model source of truth**: resolve one `SDM apiName` and exact field apiNames once, then reuse.
+2. **No cross-org carryover**: never reuse model IDs/field apiNames from previous runs.
+3. **Incremental validation**: POST first visualization, verify success, then continue.
+4. **Fail fast**: if any viz payload fails, stop and fix immediately before creating more artifacts.
+5. **Structured edits only**: avoid regex mutation of metadata/scripts when direct JSON/API updates are available.
+6. **Dashboard last**: only build dashboard after all required visualizations have succeeded and returned `name` values.
+
+If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
+
 ```mermaid
 graph TD
     START[Start] --> DISCOVER[Phase 1: Discover SDMs]

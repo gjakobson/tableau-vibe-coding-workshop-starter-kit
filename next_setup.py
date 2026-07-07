@@ -400,17 +400,6 @@ def main():
 
   ─────────────────────────────────────────────────────────
 
-  To build your first Tableau Next demo, open Claude Code
-  and type:
-
-      /start-workshop
-
-  Claude will ask you for the bank name, persona, and story,
-  then build the complete workspace, semantic model, and
-  visualizations automatically.
-
-  ─────────────────────────────────────────────────────────
-
   To clean up a demo after use:
 
       /opt/homebrew/bin/python3.13 next_teardown.py
