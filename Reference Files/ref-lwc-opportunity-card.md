@@ -16,6 +16,7 @@ For this request type:
 2. Reuse/extend `lwc/opportunityProfileCard` as the production baseline.
 3. Keep the dark card UX and existing robust wiring.
 4. Ignore legacy ad-hoc artifacts (`*OppViewer*`, `*_deploy_opp_viewer.py`) even if present in workspace.
+5. Treat creation of any new one-off viewer component for this intent (for example `*OppViewer*` or `*opportunitiesCard*`) as an implementation error.
 
 If the request is for chart visuals (sunburst/treemap/radar/etc), use `ref-viz-extensions.md` instead.
 
@@ -28,6 +29,8 @@ If the request is for chart visuals (sunburst/treemap/radar/etc), use `ref-viz-e
 3. Card shows business-useful details (stage, amount, probability, owner, source, next step, dates, ID).
 4. Card is usable in dashboard layout without tiny/placeholder rendering.
 5. If actions are enabled, action launch behavior is tested in-dashboard.
+6. Preflight validation is completed before deploy: semantic model is inspected and concrete field mappings are confirmed for Opportunity Name, Stage, Amount, Probability, Owner, Source, Next Step, Close Date, and Opportunity ID.
+7. Completion is blocked if dropdown options are empty after deploy/patch; fix mappings/wiring/layout and re-verify before marking done.
 
 Do not mark complete unless all pass.
 
