@@ -289,6 +289,8 @@ If intent is "opportunity detail card" (dropdown + full opportunity properties):
 5. Hard fail if the plan proposes creating any new component for this intent (for example `*OppViewer*`, `*opportunitiesCard*`, or any one-off viewer clone) instead of reusing `lwc/opportunityProfileCard`.
 6. Required preflight before deploy/patch: inspect the selected semantic model and verify concrete field mappings for Opportunity Name, Stage, Amount, Probability, Owner, Source, Next Step, Close Date, and Opportunity ID.
 7. Do not mark complete unless the deployed card shows a non-empty dropdown in-dashboard; empty dropdown is a blocking failure that must be fixed (field mapping/query wiring/layout) before completion.
+8. Never hardcode `sdmName=WorkshopModel` for this flow; always use the currently selected model apiName from discovery.
+9. If the selected model has no `Opportunity` SDO (or equivalent fields cannot be mapped), stop and ask the user to choose an alternative model/SDO before implementation.
 
 ### 2d-c — Set workshop theme, then execute
 

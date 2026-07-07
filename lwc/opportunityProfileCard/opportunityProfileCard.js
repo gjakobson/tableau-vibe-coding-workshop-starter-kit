@@ -25,11 +25,13 @@ export default class OpportunityProfileCard extends LightningElement {
     @api queryLimit = QUERY_LIMIT_DEFAULT;
 
     @api nameField = "Name";
+    @api nameFieldSdo = "";
     @api stageField = "Opportunity_Stage";
     @api amountField = "Total_Amount";
     @api expectedRevenueField = "Expected_Revenue_Amount";
     @api probabilityField = "Probability";
     @api ownerField = "OwnerUser";
+    @api ownerFieldSdo = "";
     @api leadSourceField = "Lead_Source";
     @api closeDateField = "Close_Date";
     @api nextStepField = "Next_Step";
@@ -65,6 +67,7 @@ export default class OpportunityProfileCard extends LightningElement {
     _timeoutId = null;
     _fieldIndex = {};
     _opportunityRows = [];
+    _queryMode = "full";
 
     get isEmpty() { return this._phase === "empty"; }
     get isLoading() { return this._phase === "loading"; }
@@ -204,10 +207,27 @@ export default class OpportunityProfileCard extends LightningElement {
 
     _registerQuery() {
         try {
-            const fields = [
-                { model: `${this.sdoName}.${this.nameField}`, rowGrouping: true },
+            this._registerQueryForMode("full");
+        } catch (err) {
+            this.errorMessage = err.message || String(err);
+            this._phase = "error";
+        }
+    }
+
+    _registerQueryForMode(mode) {
+        const nameSdo = this.nameFieldSdo || this.sdoName;
+        const ownerSdo = this.ownerFieldSdo || this.sdoName;
+        const isMinimal = mode === "minimal";
+        const fields = isMinimal
+            ? [
+                { model: `${this.sdoName}.${this.idField}`, rowGrouping: true },
                 { model: `${this.sdoName}.${this.stageField}`, rowGrouping: true },
-                { model: `${this.sdoName}.${this.ownerField}`, rowGrouping: true },
+                { model: `${this.sdoName}.${this.probabilityField}`, aggregationType: "AVG" }
+            ]
+            : [
+                { model: `${nameSdo}.${this.nameField}`, rowGrouping: true },
+                { model: `${this.sdoName}.${this.stageField}`, rowGrouping: true },
+                { model: `${ownerSdo}.${this.ownerField}`, rowGrouping: true },
                 { model: `${this.sdoName}.${this.leadSourceField}`, rowGrouping: true },
                 { model: `${this.sdoName}.${this.nextStepField}`, rowGrouping: true },
                 { model: `${this.sdoName}.${this.closeDateField}`, rowGrouping: true },
@@ -217,23 +237,55 @@ export default class OpportunityProfileCard extends LightningElement {
                 { model: `${this.sdoName}.${this.probabilityField}`, aggregationType: "AVG" }
             ];
 
-            this._fieldIndex = {
-                name: 0, stage: 1, owner: 2, source: 3, nextStep: 4,
-                closeDate: 5, oppId: 6, amount: 7, expectedRevenue: 8, probability: 9
+        this._fieldIndex = isMinimal
+            ? {
+                name: 0,
+                stage: 1,
+                owner: 0,
+                source: 1,
+                nextStep: 1,
+                closeDate: 1,
+                oppId: 0,
+                amount: 2,
+                expectedRevenue: 2,
+                probability: 2
+            }
+            : {
+                name: 0,
+                stage: 1,
+                owner: 2,
+                source: 3,
+                nextStep: 4,
+                closeDate: 5,
+                oppId: 6,
+                amount: 7,
+                expectedRevenue: 8,
+                probability: 9
             };
 
-            this.sdk.registerFieldsForQuery(fields, this.sdmName, {
-                limit: parseInt(this.queryLimit, 10) || QUERY_LIMIT_DEFAULT
-            });
-            this._phase = "loading";
+        this._queryMode = mode;
+        this._debug("register query mode", mode);
 
-            this._timeoutId = setTimeout(() => {
-                if (this._phase === "loading") this._phase = "empty";
-            }, 8000);
-        } catch (err) {
-            this.errorMessage = err.message || String(err);
-            this._phase = "error";
+        this.sdk.registerFieldsForQuery(fields, this.sdmName, {
+            limit: parseInt(this.queryLimit, 10) || QUERY_LIMIT_DEFAULT
+        });
+        // Trigger the first data load immediately after query registration.
+        this.sdk.fetchData?.();
+        this._phase = "loading";
+
+        if (this._timeoutId) {
+            clearTimeout(this._timeoutId);
         }
+        this._timeoutId = setTimeout(() => {
+            if (this._phase !== "loading") return;
+            // Some org/model combos don't return rows for richer mixed queries.
+            // Retry once with a minimal, known-safe query contract.
+            if (this._queryMode === "full") {
+                this._registerQueryForMode("minimal");
+                return;
+            }
+            this._phase = "empty";
+        }, 8000);
     }
 
     _processSdkRows(payload) {

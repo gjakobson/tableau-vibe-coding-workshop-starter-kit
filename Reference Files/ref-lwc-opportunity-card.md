@@ -39,11 +39,26 @@ Do not mark complete unless all pass.
 ## Implementation defaults
 
 Use/keep these defaults unless user asks otherwise:
-- `sdmName = WorkshopModel`
-- `sdoName = Opportunity`
+- `sdmName = <selected model apiName from discovery>` (do not hardcode `WorkshopModel`)
+- `sdoName = Opportunity` (if not present, stop and ask user which SDO should back the card)
 - `queryLimit = 500`
 - `actionList = Global.LogACall,Global.NewTask,Global.NewEvent`
 - `defaultAction = Global.LogACall`
+
+Field mapping policy for every org:
+1. Inspect the selected semantic model with `includeModelContent=true`.
+2. Build mappings from actual field apiNames in that org (never copy field apiNames from prior runs).
+3. For each required card field, map by exact label/api first, then safe synonym match:
+   - Name: `Opportunity Name` or `Opportunity`
+   - Stage: `Opportunity Stage` or `Stage`
+   - Amount: `Amount`, `Deal Amount`, or equivalent numeric measure
+   - Probability: `Probability`
+   - Owner: `Owner`, `OwnerUser`, or joined owner label
+   - Source: `Lead Source`, `Source`, or equivalent
+   - Next Step: `Next Step`
+   - Close Date: `Close Date`
+   - Opportunity ID: `Opportunity Id`
+4. If any required mapping is missing, block completion and ask the user before deploy.
 
 ---
 

@@ -13,11 +13,13 @@
             <property name="sdoName" type="String" label="SDO API Name" default="Opportunity"/>
             <property name="queryLimit" type="Integer" label="Query Limit" default="500"/>
             <property name="nameField" type="String" label="Name Field API Name" default="Name"/>
+            <property name="nameFieldSdo" type="String" label="Name Field SDO Override" default=""/>
             <property name="stageField" type="String" label="Stage Field API Name" default="Opportunity_Stage"/>
             <property name="amountField" type="String" label="Amount Field API Name" default="Total_Amount"/>
             <property name="expectedRevenueField" type="String" label="Expected Revenue Field API Name" default="Expected_Revenue_Amount"/>
             <property name="probabilityField" type="String" label="Probability Field API Name" default="Probability"/>
             <property name="ownerField" type="String" label="Owner Field API Name" default="OwnerUser"/>
+            <property name="ownerFieldSdo" type="String" label="Owner Field SDO Override" default=""/>
             <property name="leadSourceField" type="String" label="Lead Source Field API Name" default="Lead_Source"/>
             <property name="closeDateField" type="String" label="Close Date Field API Name" default="Close_Date"/>
             <property name="nextStepField" type="String" label="Next Step Field API Name" default="Next_Step"/>
