@@ -1,0 +1,231 @@
+:host {
+    display: block;
+    font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100%;
+    overflow: visible;
+}
+
+.dark-card {
+    background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 16px;
+    padding: 24px;
+    color: #e2e8f0;
+    min-height: 600px;
+    height: auto;
+    overflow: visible;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(148, 163, 184, 0.05);
+}
+
+/* ── Empty / Loading / Error ── */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    gap: 12px;
+}
+.empty-icon { width: 56px; height: 56px; color: #475569; }
+.empty-icon svg { width: 100%; height: 100%; }
+.empty-title { font-size: 16px; font-weight: 600; color: #94a3b8; margin: 0; }
+.empty-sub { font-size: 13px; color: #64748b; margin: 0; }
+.error-text { color: #f87171; }
+.spinner {
+    width: 32px; height: 32px;
+    border: 3px solid rgba(148, 163, 184, 0.15);
+    border-top-color: #60a5fa;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Header ── */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.title-block { display: flex; flex-direction: column; gap: 4px; }
+.card-title { font-size: 20px; font-weight: 700; color: #f8fafc; margin: 0; }
+.record-count { font-size: 11px; color: #64748b; font-weight: 500; }
+.header-controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.filter-wrap { display: flex; flex-direction: column; gap: 3px; }
+.filter-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: #94a3b8;
+}
+.filter-select {
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.65);
+    color: #e2e8f0;
+    padding: 5px 8px;
+    font-size: 12px;
+    min-width: 120px;
+}
+.sort-dir-btn {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    align-self: flex-end;
+}
+
+/* ── Divider ── */
+.divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.15), transparent);
+    margin: 18px 0;
+}
+
+/* ── KPI Tiles ── */
+.kpi-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+.kpi-tile {
+    flex: 1;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+    border-radius: 10px;
+    text-align: center;
+}
+.kpi-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b;
+}
+.kpi-value { font-size: 18px; font-weight: 700; line-height: 1.2; }
+.accent-blue { color: #60a5fa; }
+.accent-green { color: #4ade80; }
+.accent-purple { color: #c084fc; }
+.accent-orange { color: #fb923c; }
+
+/* ── Stage Distribution Bar ── */
+.stage-bar-wrap {
+    display: flex;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    gap: 2px;
+    margin-bottom: 10px;
+}
+.stage-seg { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+.seg-won  { background: #22c55e; }
+.seg-lost { background: #ef4444; }
+.seg-late { background: #eab308; }
+.seg-open { background: #3b82f6; }
+
+.stage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin-bottom: 4px;
+}
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-won  { background: #22c55e; }
+.dot-lost { background: #ef4444; }
+.dot-late { background: #eab308; }
+.dot-open { background: #3b82f6; }
+.legend-label { font-size: 11px; color: #94a3b8; }
+.legend-pct { font-size: 11px; color: #64748b; }
+
+/* ── Table ── */
+.table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+}
+.opp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.opp-table thead tr {
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+.opp-table th {
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: #64748b;
+    white-space: nowrap;
+}
+.opp-row td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+    color: #cbd5e1;
+    vertical-align: middle;
+}
+.opp-row:last-child td { border-bottom: none; }
+.opp-row:hover td { background: rgba(255, 255, 255, 0.03); }
+.row-lost td { opacity: 0.5; }
+.cell-name { font-weight: 600; color: #f1f5f9; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-num { font-family: monospace; text-align: right; color: #93c5fd; }
+.cell-owner { color: #94a3b8; font-size: 11px; }
+.cell-date { white-space: nowrap; color: #94a3b8; }
+.date-past { color: #f87171; }
+.date-urgent { color: #fb923c; font-weight: 600; }
+.date-soon { color: #fbbf24; }
+
+/* ── Stage badges ── */
+.stage-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+}
+.badge-open {
+    background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.badge-late {
+    background: rgba(234, 179, 8, 0.15); color: #fbbf24; border: 1px solid rgba(234, 179, 8, 0.3);
+}
+.badge-won {
+    background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.badge-lost {
+    background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ── Probability cell ── */
+.prob-cell { display: flex; align-items: center; gap: 6px; min-width: 80px; }
+.prob-bar-track { flex: 1; height: 5px; background: rgba(148, 163, 184, 0.12); border-radius: 3px; overflow: hidden; }
+.prob-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.bar-high { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.bar-med  { background: linear-gradient(90deg, #eab308, #fbbf24); }
+.bar-low  { background: linear-gradient(90deg, #ef4444, #f87171); }
+.prob-label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+
+/* ── Show More ── */
+.show-more-wrap { margin-top: 12px; text-align: center; }
+.show-more-btn {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(255, 255, 255, 0.04);
+    color: #94a3b8;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.show-more-btn:hover { background: rgba(255, 255, 255, 0.07); color: #e2e8f0; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+    .dark-card { padding: 16px; }
+    .card-header { flex-direction: column; }
+    .kpi-row { flex-direction: column; }
+    .kpi-tile { min-width: 0; }
+}

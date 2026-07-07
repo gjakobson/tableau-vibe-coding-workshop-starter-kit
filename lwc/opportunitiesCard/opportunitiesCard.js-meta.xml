@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Opportunities Card</masterLabel>
+    <description>Pipeline overview card — KPI tiles, stage distribution bar, sortable/filterable opportunity table.</description>
+    <targets>
+        <target>analytics__Dashboard</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="analytics__Dashboard">
+            <property name="sdmName"        type="String"  label="Semantic Model API Name"         default="WorkshopModel"/>
+            <property name="sdoName"        type="String"  label="SDO API Name"                    default="Opportunity"/>
+            <property name="queryLimit"     type="Integer" label="Query Limit"                     default="500"/>
+            <property name="nameField"      type="String"  label="Name Field API Name"             default="Name"/>
+            <property name="stageField"     type="String"  label="Stage Field API Name"            default="Opportunity_Stage"/>
+            <property name="amountField"    type="String"  label="Amount Field API Name"           default="Total_Amount"/>
+            <property name="probabilityField" type="String" label="Probability Field API Name"     default="Probability"/>
+            <property name="ownerField"     type="String"  label="Owner Field API Name"            default="OwnerUser"/>
+            <property name="closeDateField" type="String"  label="Close Date Field API Name"       default="Close_Date"/>
+            <property name="idField"        type="String"  label="Opportunity Id Field API Name"   default="Opportunity_Id"/>
+            <property name="debugMode"      type="Boolean" label="Enable Console Debug Logging"    default="false"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
