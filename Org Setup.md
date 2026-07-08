@@ -52,13 +52,13 @@ Deploy the following metadata from this repo to each new org:
 - `force-app/main/default/classes/OpportunityCardChatController.cls-meta.xml`
 
 ### LWC bundle (primary)
-- `lwc/opportunityProfileCard/opportunityProfileCard.js`
-- `lwc/opportunityProfileCard/opportunityProfileCard.html`
-- `lwc/opportunityProfileCard/opportunityProfileCard.css`
-- `lwc/opportunityProfileCard/opportunityProfileCard.js-meta.xml`
+- `force-app/main/default/lwc/opportunityProfileCard/opportunityProfileCard.js`
+- `force-app/main/default/lwc/opportunityProfileCard/opportunityProfileCard.html`
+- `force-app/main/default/lwc/opportunityProfileCard/opportunityProfileCard.css`
+- `force-app/main/default/lwc/opportunityProfileCard/opportunityProfileCard.js-meta.xml`
 
 ### Optional LWC scaffold (separate chat add-on pattern)
-- `lwc/opportunityCardChat/*`
+- `force-app/main/default/lwc/opportunityCardChat/*`
 
 ---
 

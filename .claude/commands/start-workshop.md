@@ -299,10 +299,10 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 
 If intent is "opportunity detail card" (dropdown + full opportunity properties):
 1. Always route to `Reference Files/ref-lwc-opportunity-card.md`.
-2. Always implement/extend `lwc/opportunityProfileCard` as the production baseline.
+2. Always implement/extend `force-app/main/default/lwc/opportunityProfileCard` as the production baseline.
 3. Never scaffold or reuse ad-hoc legacy components/scripts such as `*OppViewer*` or `*_deploy_opp_viewer.py`.
 4. If those legacy files exist in the workspace, ignore them for implementation decisions.
-5. Hard fail if the plan proposes creating any new component for this intent (for example `*OppViewer*`, `*opportunitiesCard*`, or any one-off viewer clone) instead of reusing `lwc/opportunityProfileCard`.
+5. Hard fail if the plan proposes creating any new component for this intent (for example `*OppViewer*`, `*opportunitiesCard*`, or any one-off viewer clone) instead of reusing `force-app/main/default/lwc/opportunityProfileCard`.
 6. Required preflight before deploy/patch: inspect the selected semantic model and verify concrete field mappings for Opportunity Name, Stage, Amount, Probability, Owner, Source, Next Step, Close Date, and Opportunity ID.
 7. Do not mark complete unless the deployed card shows a non-empty dropdown in-dashboard; empty dropdown is a blocking failure that must be fixed (field mapping/query wiring/layout) before completion.
 8. Never hardcode `sdmName=WorkshopModel` for this flow; always use the currently selected model apiName from discovery.

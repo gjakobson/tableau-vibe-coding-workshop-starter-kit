@@ -13,7 +13,7 @@ The user does **not** need to mention LWC.
 
 For this request type:
 1. Do **not** scaffold a bare/minimal new component from scratch.
-2. Reuse/extend `lwc/opportunityProfileCard` as the production baseline.
+2. Reuse/extend `force-app/main/default/lwc/opportunityProfileCard` as the production baseline.
 3. Keep the dark card UX and existing robust wiring.
 4. Ignore legacy ad-hoc artifacts (`*OppViewer*`, `*_deploy_opp_viewer.py`) even if present in workspace.
 5. Treat creation of any new one-off viewer component for this intent (for example `*OppViewer*` or `*opportunitiesCard*`) as an implementation error.
@@ -76,7 +76,7 @@ If the card has an inner scrollbar and content is clipped:
 
 Use this when you want consistent output quality:
 
-> "Add an opportunity detail external card using the existing `lwc/opportunityProfileCard` production pattern.  
+> "Add an opportunity detail external card using the existing `force-app/main/default/lwc/opportunityProfileCard` production pattern.  
 > Keep filter-aware dropdown selection and full property display.  
 > Keep production styling.  
 > Deploy and patch dashboard layout height so no cramped inner scroll."

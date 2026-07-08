@@ -26,10 +26,10 @@ When the user says:
 ## Included scaffolding in this repo
 
 - LWC chat panel:
-  - `lwc/opportunityCardChat/opportunityCardChat.js`
-  - `lwc/opportunityCardChat/opportunityCardChat.html`
-  - `lwc/opportunityCardChat/opportunityCardChat.css`
-  - `lwc/opportunityCardChat/opportunityCardChat.js-meta.xml`
+  - `force-app/main/default/lwc/opportunityCardChat/opportunityCardChat.js`
+  - `force-app/main/default/lwc/opportunityCardChat/opportunityCardChat.html`
+  - `force-app/main/default/lwc/opportunityCardChat/opportunityCardChat.css`
+  - `force-app/main/default/lwc/opportunityCardChat/opportunityCardChat.js-meta.xml`
 - Apex controller scaffold:
   - `force-app/main/default/classes/OpportunityCardChatController.cls`
   - `force-app/main/default/classes/OpportunityCardChatController.cls-meta.xml`

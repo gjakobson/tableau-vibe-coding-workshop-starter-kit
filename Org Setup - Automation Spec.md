@@ -35,8 +35,8 @@ org_features:
 deploy_paths:
   - force-app/main/default/classes/OpportunityCardChatController.cls
   - force-app/main/default/classes/OpportunityCardChatController.cls-meta.xml
-  - lwc/opportunityProfileCard/**
-  - lwc/opportunityCardChat/**
+  - force-app/main/default/lwc/opportunityProfileCard/**
+  - force-app/main/default/lwc/opportunityCardChat/**
 ```
 
 ---

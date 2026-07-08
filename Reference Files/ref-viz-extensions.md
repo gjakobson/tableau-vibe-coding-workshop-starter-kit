@@ -12,7 +12,7 @@ this is **NOT** a generic chart extension request.
 
 In that case:
 1. Do **not** scaffold a minimal new white-card LWC from scratch.
-2. Reuse or extend the existing production pattern in `lwc/opportunityProfileCard`.
+2. Reuse or extend the existing production pattern in `force-app/main/default/lwc/opportunityProfileCard`.
 3. Keep dark theme, robust field mapping, action hooks, and filter-aware behavior.
 4. Deploy and patch dashboard placement with enough layout height.
 
@@ -41,7 +41,7 @@ If these are not met, do not present as complete.
 
 Use this exact instruction when a user asks for "dropdown + all properties" card behavior:
 
-> "Implement this using the existing `lwc/opportunityProfileCard` production pattern, not a new minimal scaffold.  
+> "Implement this using the existing `force-app/main/default/lwc/opportunityProfileCard` production pattern, not a new minimal scaffold.  
 > Keep it filter-aware via `registerFieldsForQuery` + `dataUpdate`.  
 > Preserve dark-card UX, robust field mapping, and configurable properties.  
 > Ensure dashboard layout height/rowspan is large enough to avoid inner scrolling.  
