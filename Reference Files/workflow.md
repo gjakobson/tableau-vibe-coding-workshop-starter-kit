@@ -18,6 +18,9 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 4. **Fail fast**: if any viz payload fails, stop and fix immediately before creating more artifacts.
 5. **Structured edits only**: avoid regex mutation of metadata/scripts when direct JSON/API updates are available.
 6. **Dashboard last**: only build dashboard after all required visualizations have succeeded and returned `name` values.
+7. **Aggregation semantics lock**: for calculated measures, set `function` to the SDM `aggregationType` mapping; never force `Sum` for `UserAgg`/aggregate calcs unless SDM confirms `Sum`.
+8. **Renderability gate**: after creating visualization #1, place it in dashboard context and confirm it renders before creating the rest.
+9. **Model identity lock**: abort if any script step switches away from the selected model apiName.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 

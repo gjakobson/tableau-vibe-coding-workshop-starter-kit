@@ -290,6 +290,10 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 6. Keep scripts concise and stage-scoped; avoid giant monolithic scripts that combine unrelated retry logic in one file.
 7. For dashboard build, reference only visualization `name` values returned from successful POST responses in the same run.
 8. If any required field mapping is missing in the selected model, stop and ask the user before continuing.
+9. Hard fail if a calculated measure uses incompatible aggregation semantics (for example forcing `function="Sum"` on `UserAgg`/aggregate calcs not mapped to `Sum` in SDM metadata).
+10. Hard fail if model/API identity changes mid-run (for example switching to a different `SDM apiName` than selected during discovery).
+11. Hard fail if any metadata/XML file is modified through regex replacement; use structured write operations only.
+12. Hard fail if visualization #1 succeeds creation but fails to render in dashboard; do not proceed to additional visualizations or dashboard finalization.
 
 **Hard guardrail for opportunity detail card requests**
 

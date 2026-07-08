@@ -176,3 +176,12 @@ pipeline_by_region = create_visualization(
 ```python
 viz_name = result.get("apiName") or result.get("name")
 ```
+
+---
+
+## Hard fail validation rules (do not skip)
+
+1. **Aggregation compatibility**: for calculated measures, derive `function` from SDM `aggregationType` mapping. Do not force `function="Sum"` on `UserAgg`/aggregate calcs unless SDM metadata explicitly resolves to `Sum`.
+2. **First-viz render gate**: after creating the first visualization, validate it renders in dashboard context before creating additional visualizations.
+3. **Model lock**: abort if any payload uses an `sdmName` different from the selected model for this run.
+4. **Structured edits only**: never use regex/string replacement to mutate metadata XML or component source when structured payload/write operations are available.
