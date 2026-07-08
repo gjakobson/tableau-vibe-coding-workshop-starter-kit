@@ -21,6 +21,12 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 7. **Aggregation semantics lock**: for calculated measures, set `function` to the SDM `aggregationType` mapping; never force `Sum` for `UserAgg`/aggregate calcs unless SDM confirms `Sum`.
 8. **Renderability gate**: after creating visualization #1, place it in dashboard context and confirm it renders before creating the rest.
 9. **Model identity lock**: abort if any script step switches away from the selected model apiName.
+10. **Time budget lock**: discovery/mapping <= 90s, first viz create+render <= 120s, each extra viz <= 90s, dashboard assembly <= 90s, optional extension deploy+attach <= 180s.
+11. **Retry cap lock**: one retry max per failed API call after an explicit fix; if still failing, stop and ask user.
+12. **Capability probe lock**: run one up-front endpoint capability check (for example submetric support) and skip unsupported branches for the rest of run.
+13. **No large ad-hoc scripts**: do not create monolithic orchestration scripts in normal runs; prefer existing templates/utilities and compact stage-scoped scripts.
+14. **Question minimization**: if user already gave selections/theme/chart type, do not ask extra planning questions before execution.
+15. **Progress contract**: after each phase, print elapsed time and artifacts created; abort immediately when a phase exceeds budget.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 

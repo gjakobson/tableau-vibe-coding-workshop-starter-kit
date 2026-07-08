@@ -185,3 +185,6 @@ viz_name = result.get("apiName") or result.get("name")
 2. **First-viz render gate**: after creating the first visualization, validate it renders in dashboard context before creating additional visualizations.
 3. **Model lock**: abort if any payload uses an `sdmName` different from the selected model for this run.
 4. **Structured edits only**: never use regex/string replacement to mutate metadata XML or component source when structured payload/write operations are available.
+5. **Phase timing budget**: first visualization create+render must complete within 120s; each additional visualization must complete within 90s. If exceeded, stop and report a blocking timeout.
+6. **Retry cap**: only one retry is allowed per failed visualization POST after a concrete payload correction. Multiple exploratory retries are prohibited.
+7. **No giant orchestration scripts**: do not generate large combined scripts for discovery+viz+dashboard in this step; keep visualization logic stage-scoped and directly auditable.

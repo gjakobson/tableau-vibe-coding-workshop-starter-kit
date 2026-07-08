@@ -294,6 +294,12 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 10. Hard fail if model/API identity changes mid-run (for example switching to a different `SDM apiName` than selected during discovery).
 11. Hard fail if any metadata/XML file is modified through regex replacement; use structured write operations only.
 12. Hard fail if visualization #1 succeeds creation but fails to render in dashboard; do not proceed to additional visualizations or dashboard finalization.
+13. Time budget lock: complete each phase within these targets, then hard stop and surface a blocking error (do not continue silently): discovery/mapping <= 90s, visualization #1 create+render <= 120s, each additional visualization <= 90s, dashboard assembly <= 90s, optional LWC deploy+attach <= 180s.
+14. Retry cap lock: maximum one retry per failing API operation after a concrete fix. If the retry fails, stop and ask the user instead of exploring additional branches.
+15. Path lock: for visualizations and dashboard creation, prefer existing repository templates/scripts and direct API payloads; do not generate new large ad-hoc orchestration scripts (>160 lines) during a normal run.
+16. Capability probe lock: perform one lightweight capability check up front (for example submetric endpoint availability). If unsupported, skip that branch for the rest of the run.
+17. Prompt minimization lock: when user already provided option numbers and theme/chart intent, do not ask additional planning questions; proceed directly with execution.
+18. Output contract lock: after each major phase, emit a one-line status with elapsed time and artifacts created; if elapsed exceeds budget, abort immediately.
 
 **Hard guardrail for opportunity detail card requests**
 
