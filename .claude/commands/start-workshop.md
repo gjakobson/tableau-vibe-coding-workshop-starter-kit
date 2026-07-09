@@ -291,6 +291,8 @@ For visualization/dashboard work, these are blocking requirements:
 7. Identifier lock: dashboard payload may reference only `name` values returned from successful visualization POST responses in the same run.
 8. Script size lock: for steps 2/3, do not generate monolithic orchestration scripts over 160 lines; use existing templates and stage-scoped scripts.
 9. Failure contract: on first blocking error, print endpoint, payload fragment, response body, and exact next action, then stop.
+10. KPI row requirement: if the selected model has one or more available metrics, dashboard step must include a top KPI row (up to 4 metric tiles) before the visualization grid.
+11. KPI skip contract: if KPI tiles are omitted, print explicit reason in output (for example "no metrics available in model" or "metric IDs unresolved after fetch") before finalizing.
 
 **Option 1 fast path (single calc field / metric request)**
 

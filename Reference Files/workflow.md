@@ -33,6 +33,8 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 19. **Dashboard gate lock**: dashboard creation/patching is forbidden until all required visualizations pass render validation.
 20. **Same-run identifier lock**: reference only visualization `name` values returned from successful POST responses in the current run.
 21. **Failure output lock**: on first blocking failure, emit endpoint, payload fragment, response body, and next action, then stop.
+22. **KPI row requirement**: when model metrics are available, dashboard must include a top KPI row (up to 4 metric widgets) before chart widgets.
+23. **KPI skip reason requirement**: if KPI row is skipped, emit explicit reason (e.g., no metrics found, metric IDs unresolved) before dashboard completion.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 

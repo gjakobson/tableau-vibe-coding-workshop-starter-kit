@@ -6,6 +6,14 @@ Read this file when building or patching a Tableau Next dashboard.
 
 ## STEP N — Dashboard (CONFIRMED WORKING)
 
+### KPI row policy (required)
+
+Before assembling visualization widgets:
+1. Fetch metric IDs for the selected model.
+2. If metrics exist, include a top KPI row with up to 4 metric tiles.
+3. Only skip KPI row when no metrics are available or metric IDs cannot be resolved.
+4. If skipped, print an explicit skip reason before marking dashboard complete.
+
 ```python
 import uuid
 
