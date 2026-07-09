@@ -192,3 +192,4 @@ viz_name = result.get("apiName") or result.get("name")
 9. **No ad-hoc JSON**: do not hand-construct visualization payloads from scratch when a working template/example exists.
 10. **Sequential gate**: do not create visualization #2+ until visualization #1 passes POST success, `name` extraction, and render validation.
 11. **Failure contract**: on first blocking failure, print endpoint, payload fragment, response body, and exact next action, then stop.
+12. **UserAgg function lock**: if a calculated measure has SDM `aggregationType="UserAgg"`, do not apply a visualization-level function (`Avg`/`Sum`/etc.) on that field. Block the run if payload generation attempts a secondary aggregation.
