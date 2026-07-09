@@ -188,3 +188,7 @@ viz_name = result.get("apiName") or result.get("name")
 5. **Phase timing budget**: first visualization create+render must complete within 120s; each additional visualization must complete within 90s. If exceeded, stop and report a blocking timeout.
 6. **Retry cap**: only one retry is allowed per failed visualization POST after a concrete payload correction. Multiple exploratory retries are prohibited.
 7. **No giant orchestration scripts**: do not generate large combined scripts for discovery+viz+dashboard in this step; keep visualization logic stage-scoped and directly auditable.
+8. **Template-first requirement**: read this file and `ref-dashboard.md`, and reuse proven in-repo payload patterns before creating any new visualization payload.
+9. **No ad-hoc JSON**: do not hand-construct visualization payloads from scratch when a working template/example exists.
+10. **Sequential gate**: do not create visualization #2+ until visualization #1 passes POST success, `name` extraction, and render validation.
+11. **Failure contract**: on first blocking failure, print endpoint, payload fragment, response body, and exact next action, then stop.

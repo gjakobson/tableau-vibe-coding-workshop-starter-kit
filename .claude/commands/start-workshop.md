@@ -279,6 +279,19 @@ Present a clean summary, then ask:
 
 **Read the relevant reference file(s) before writing any code.**
 
+**Visualization + dashboard execution lock (options 2/3/4/8)**
+
+For visualization/dashboard work, these are blocking requirements:
+1. Template-first: read `Reference Files/ref-viz.md` and `Reference Files/ref-dashboard.md`, then locate at least one working in-repo example before creating payloads.
+2. Do not hand-construct visualization/dashboard JSON from scratch when a working template/example exists.
+3. Create visualization #1 first and validate all three checks before continuing: successful POST, response contains `name`, and renders in dashboard context.
+4. If visualization #1 fails any check, stop immediately. Do not create visualization #2+ until fixed.
+5. Visualization sequencing lock: visualization N+1 is forbidden until visualization N passes render gate.
+6. Dashboard creation lock: do not create/patch dashboard until all required visualizations pass render validation.
+7. Identifier lock: dashboard payload may reference only `name` values returned from successful visualization POST responses in the same run.
+8. Script size lock: for steps 2/3, do not generate monolithic orchestration scripts over 160 lines; use existing templates and stage-scoped scripts.
+9. Failure contract: on first blocking error, print endpoint, payload fragment, response body, and exact next action, then stop.
+
 **Option 1 fast path (single calc field / metric request)**
 
 If the user selects only option `1`, use a deterministic 5-step flow and avoid iterative trial-and-error:

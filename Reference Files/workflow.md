@@ -27,6 +27,12 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 13. **No large ad-hoc scripts**: do not create monolithic orchestration scripts in normal runs; prefer existing templates/utilities and compact stage-scoped scripts.
 14. **Question minimization**: if user already gave selections/theme/chart type, do not ask extra planning questions before execution.
 15. **Progress contract**: after each phase, print elapsed time and artifacts created; abort immediately when a phase exceeds budget.
+16. **Template-first lock**: before writing viz/dashboard code, read `ref-viz.md` + `ref-dashboard.md` and locate at least one working in-repo example.
+17. **No ad-hoc payloads**: do not hand-build visualization/dashboard JSON when a known working template exists.
+18. **Sequential viz lock**: visualization N+1 cannot be created until visualization N passes success + `name` + render checks.
+19. **Dashboard gate lock**: dashboard creation/patching is forbidden until all required visualizations pass render validation.
+20. **Same-run identifier lock**: reference only visualization `name` values returned from successful POST responses in the current run.
+21. **Failure output lock**: on first blocking failure, emit endpoint, payload fragment, response body, and next action, then stop.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 
