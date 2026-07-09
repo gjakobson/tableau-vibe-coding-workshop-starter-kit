@@ -37,6 +37,9 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 23. **KPI skip reason requirement**: if KPI row is skipped, emit explicit reason (e.g., no metrics found, metric IDs unresolved) before dashboard completion.
 24. **Metrics-first planning lock**: when dashboard is in scope, select 4-6 KPI metrics from existing model metrics before creating any new calculated fields/metrics.
 25. **New-metric exception lock**: only create new metrics when explicitly requested by user or when existing metrics cannot adequately cover the selected theme.
+26. **Field manifest lock**: before any visualization POST, build one in-memory manifest from selected model metadata (SDOs, dimensions, measurements, calculated fields, and aggregation types) and resolve all payload fields from it.
+27. **Unresolved field hard fail**: if any requested visualization field cannot be resolved from the manifest, stop and report the exact missing field; do not guess, alias, or auto-edit field apiNames.
+28. **No diagnostic side-scripts lock**: in normal run mode, do not create ad-hoc `_get_*` helper scripts for field discovery; perform one manifest preflight and reuse it across the run.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 

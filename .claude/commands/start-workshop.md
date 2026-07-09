@@ -340,6 +340,9 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 18. Output contract lock: after each major phase, emit a one-line status with elapsed time and artifacts created; if elapsed exceeds budget, abort immediately.
 19. Dashboard metric preflight lock: if options include dashboard creation (2, 3, or 8), identify 4-6 KPI metrics from existing model metrics before creating new calculated fields/metrics.
 20. New metric creation lock: create new metrics only when explicitly requested by the user or when existing metrics are insufficient for the selected theme.
+21. Field-manifest lock: before any visualization POST, build one in-memory field mapping manifest from the selected model (SDOs, dimensions, measurements, calculated fields, and aggregation types). All visualization fields must resolve from this manifest.
+22. Unresolved-field hard fail: if any visualization field is not found in the manifest, stop immediately and report the missing field; do not attempt API POST with guessed/edited field names.
+23. No diagnostic side-script lock: during normal execution do not create ad-hoc `_get_*`/inspection helper scripts to discover field names; use the single manifest preflight path instead.
 
 **Hard guardrail for opportunity detail card requests**
 

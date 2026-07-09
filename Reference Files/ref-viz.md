@@ -193,3 +193,6 @@ viz_name = result.get("apiName") or result.get("name")
 10. **Sequential gate**: do not create visualization #2+ until visualization #1 passes POST success, `name` extraction, and render validation.
 11. **Failure contract**: on first blocking failure, print endpoint, payload fragment, response body, and exact next action, then stop.
 12. **UserAgg function lock**: if a calculated measure has SDM `aggregationType="UserAgg"`, do not apply a visualization-level function (`Avg`/`Sum`/etc.) on that field. Block the run if payload generation attempts a secondary aggregation.
+13. **Field-manifest lock**: before the first visualization POST, construct a single in-memory field manifest from the selected model (SDOs, dimensions, measurements, calculated fields, aggregation types) and resolve every viz field from that manifest only.
+14. **Unresolved-field hard fail**: if any viz field is unresolved in the manifest, stop immediately and print the unresolved field names; do not issue visualization POST with guessed replacements.
+15. **No diagnostic side-scripts**: during normal execution, do not generate or run ad-hoc `_get_*` discovery scripts for field lookups; use one preflight manifest function/path.
