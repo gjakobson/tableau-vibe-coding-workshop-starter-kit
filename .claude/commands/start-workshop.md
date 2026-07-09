@@ -113,7 +113,7 @@ Every asset created in the session gets the user's name in its label and apiName
 
 ---
 
-## STEP 1 — AUTHENTICATE TO SALESFORCE + DATA CLOUD
+## STEP 1 — AUTHENTICATE TO SALESFORCE
 
 **This is always the first step.** Tell the user:
 > "First, let me check if we can connect to your Salesforce org."
