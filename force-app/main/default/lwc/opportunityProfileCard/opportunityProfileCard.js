@@ -67,6 +67,7 @@ export default class OpportunityProfileCard extends LightningElement {
     _timeoutId = null;
     _fieldIndex = {};
     _opportunityRows = [];
+    _optionRowsByKey = {};
     _queryMode = "full";
 
     get isEmpty() { return this._phase === "empty"; }
@@ -296,6 +297,7 @@ export default class OpportunityProfileCard extends LightningElement {
                 this.opportunityOptions = [];
                 this.selectedOpportunityKey = "";
                 this._opportunityRows = [];
+                this._optionRowsByKey = {};
                 this._phase = "empty";
                 this.sdk?.actions?.notifyLifecycleChange?.(LIFE_CYCLE_EVENTS.NO_DATA);
                 return;
@@ -304,23 +306,32 @@ export default class OpportunityProfileCard extends LightningElement {
             const i = this._fieldIndex;
             const unique = [];
             const seen = new Set();
-            for (const raw of rows) {
+            for (let idx = 0; idx < rows.length; idx += 1) {
+                const raw = rows[idx];
                 const row = Array.isArray(raw) ? raw : Object.values(raw);
                 const oppId = String(row[i.oppId] || "").trim();
                 const name = String(row[i.name] || "").trim();
-                const key = oppId || name;
+                const key = oppId || `${name || "opportunity"}__${idx}`;
                 if (!key || seen.has(key)) continue;
                 seen.add(key);
                 unique.push(row);
             }
 
             this._opportunityRows = unique;
-            this.opportunityOptions = unique.map((row) => {
+            this._optionRowsByKey = {};
+            this.opportunityOptions = unique.map((row, idx) => {
                 const oppId = String(row[i.oppId] || "").trim();
                 const name = String(row[i.name] || "").trim();
-                const key = oppId || name;
+                const stage = String(row[i.stage] || "").trim();
+                const key = oppId || `${name || "opportunity"}__${idx}`;
+                let label = name || stage || "Opportunity";
+                if (!name && oppId) {
+                    const suffix = oppId.length > 6 ? oppId.slice(-6) : oppId;
+                    label = `${label} (${suffix})`;
+                }
+                this._optionRowsByKey[key] = row;
                 return {
-                    label: name || key,
+                    label,
                     value: key
                 };
             });
@@ -332,13 +343,7 @@ export default class OpportunityProfileCard extends LightningElement {
                 this.selectedOpportunityKey = this.opportunityOptions[0]?.value || "";
             }
 
-            const selectedRow =
-                unique.find((row) => {
-                    const oppId = String(row[i.oppId] || "").trim();
-                    const name = String(row[i.name] || "").trim();
-                    const key = oppId || name;
-                    return key === this.selectedOpportunityKey;
-                }) || unique[0];
+            const selectedRow = this._optionRowsByKey[this.selectedOpportunityKey] || unique[0];
 
             this._applySelectedRow(selectedRow);
 
@@ -358,14 +363,7 @@ export default class OpportunityProfileCard extends LightningElement {
 
     handleOpportunityChange(event) {
         this.selectedOpportunityKey = event.target.value;
-        const i = this._fieldIndex;
-        const selected =
-            this._opportunityRows.find((row) => {
-                const oppId = String(row[i.oppId] || "").trim();
-                const name = String(row[i.name] || "").trim();
-                const key = oppId || name;
-                return key === this.selectedOpportunityKey;
-            }) || this._opportunityRows[0];
+        const selected = this._optionRowsByKey[this.selectedOpportunityKey] || this._opportunityRows[0];
         this._applySelectedRow(selected);
     }
 
