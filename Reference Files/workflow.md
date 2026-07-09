@@ -35,6 +35,8 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 21. **Failure output lock**: on first blocking failure, emit endpoint, payload fragment, response body, and next action, then stop.
 22. **KPI row requirement**: when model metrics are available, dashboard must include a top KPI row (up to 4 metric widgets) before chart widgets.
 23. **KPI skip reason requirement**: if KPI row is skipped, emit explicit reason (e.g., no metrics found, metric IDs unresolved) before dashboard completion.
+24. **Metrics-first planning lock**: when dashboard is in scope, select 4-6 KPI metrics from existing model metrics before creating any new calculated fields/metrics.
+25. **New-metric exception lock**: only create new metrics when explicitly requested by user or when existing metrics cannot adequately cover the selected theme.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 

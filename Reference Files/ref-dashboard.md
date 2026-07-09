@@ -4,6 +4,30 @@ Read this file when building or patching a Tableau Next dashboard.
 
 ---
 
+## Dashboard Composition Best Practices
+
+KPI metric tiles:
+- Default to 4-6 KPI tiles for workshop dashboards.
+- Prefer existing model metrics first; only create new metrics for explicit user requests or clear theme coverage gaps.
+- For sales pipeline dashboards, prefer: Total Sales, Win Rate, # of Opportunities, Weighted Pipeline Value, Open Opportunities.
+- Distribute KPI tiles evenly across columns 2-71.
+
+Default layout pattern:
+- Row 0-2: title
+- Row 3-11: KPI metric tiles
+- Row 13+: visualization grid
+
+Example KPI row placement:
+```python
+metric_width = 70 // 4
+for i in range(4):
+    page_cells.append(dash_pos(f"kpi_{i+1}", 2 + i * metric_width, 3, metric_width, 9))
+```
+
+Do not ship a dashboard with only one KPI tile unless the user explicitly requests that layout.
+
+---
+
 ## STEP N — Dashboard (CONFIRMED WORKING)
 
 ### KPI row policy (required)

@@ -118,6 +118,12 @@ Every asset created in the session gets the user's name in its label and apiName
 **This is always the first step.** Tell the user:
 > "First, let me check if we can connect to your Salesforce org."
 
+**Interaction rule (do not skip):**
+- Always run the Salesforce CLI auth check first.
+- Do not ask the user to authenticate preemptively.
+- Only present Step 1c login instructions if the CLI check returns `SF_AUTH_FAILED`.
+- If CLI check returns `AUTH_OK` or `AUTH_OK_NO_DC`, continue immediately without additional auth prompts.
+
 ### 1a — Check for credentials file
 
 Use the Read tool to check in this order:
@@ -156,6 +162,12 @@ else:
     else:
         print("AUTH_OK: " + sf_instance)
 ```
+
+Required behavior after running `_check_auth.py`:
+- `AUTH_OK` -> proceed.
+- `AUTH_OK_NO_DC` -> proceed.
+- `SF_AUTH_FAILED` -> then and only then show Step 1c.
+- Never ask "please authenticate" before executing this check.
 
 **If auth succeeds (`AUTH_OK` or `AUTH_OK_NO_DC`)** — ask:
 > "Connected to [sf_instance]. What's your name? Use the same name you used last time if you've been here before — I'll find your existing workspace and pick up where you left off."
@@ -308,7 +320,7 @@ Hard stop rule for option `1`: maximum one retry per failing API operation after
 **Fast Path mode (default for options 1,2,3,4 together)**
 
 If the user selects multiple build options at once (especially `1,2,3,4`), execute in one pass but with strict deterministic gates:
-1. Build a single in-memory source of truth from the selected model: `MODEL_API_NAME`, SDO list, and exact field apiNames.
+1. Build a single in-memory source of truth from the selected model: `MODEL_API_NAME`, SDO list, exact field apiNames, and existing metric list (with IDs).
 2. Never hardcode model IDs or field apiNames from prior runs or other orgs.
 3. Create/patch assets in this order only: SDM updates → visualization #1 → validate renderability → remaining visualizations → dashboard assembly → optional D3 extension.
 4. Fail fast: if the first visualization POST fails or returns invalid payload errors, stop and fix before creating any additional assets.
@@ -326,6 +338,8 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 16. Capability probe lock: perform one lightweight capability check up front (for example submetric endpoint availability). If unsupported, skip that branch for the rest of the run.
 17. Prompt minimization lock: when user already provided option numbers and theme/chart intent, do not ask additional planning questions; proceed directly with execution.
 18. Output contract lock: after each major phase, emit a one-line status with elapsed time and artifacts created; if elapsed exceeds budget, abort immediately.
+19. Dashboard metric preflight lock: if options include dashboard creation (2, 3, or 8), identify 4-6 KPI metrics from existing model metrics before creating new calculated fields/metrics.
+20. New metric creation lock: create new metrics only when explicitly requested by the user or when existing metrics are insufficient for the selected theme.
 
 **Hard guardrail for opportunity detail card requests**
 
@@ -363,6 +377,25 @@ PERSONA      = "<sensible default based on theme>"
 ```
 
 Do NOT ask for a company name, prospect name, demo story, or signal onset — this is a workshop.
+
+### 2d-c (continued) — KPI metric selection for dashboard flows
+
+If options include dashboard creation (2, 3, or 8), select KPI tiles before visualization assembly:
+
+1. List existing metrics for the selected model.
+2. For **Sales pipeline** theme, prefer existing metrics in this order: Total Sales, Win Rate, # of Opportunities, Weighted Pipeline Value, Open Opportunities.
+3. For **Marketing** theme, prefer existing campaign/conversion/lead metrics.
+4. For **Customer success** theme, prefer existing NPS/CSAT/churn/retention metrics.
+5. For **Finance** theme, prefer existing revenue/cost/margin/growth metrics.
+6. Print selected KPI list in output (`Selected KPI tiles: [...]`).
+7. Create new metrics only if user explicitly requested one not present, or if existing metrics do not adequately cover the selected theme.
+
+Dashboard layout requirement:
+- Row 0-2: title
+- Row 3-11: 4-6 KPI metric tiles distributed across columns 2-71
+- Row 13+: visualization grid
+
+Do not build a dashboard with only one KPI tile unless the user explicitly requests a single-tile layout.
 
 **Script discipline — always follow this order:**
 1. Use the Write tool to write the complete `.py` script to disk
