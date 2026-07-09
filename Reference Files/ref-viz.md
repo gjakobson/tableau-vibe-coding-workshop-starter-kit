@@ -196,3 +196,4 @@ viz_name = result.get("apiName") or result.get("name")
 13. **Field-manifest lock**: before the first visualization POST, construct a single in-memory field manifest from the selected model (SDOs, dimensions, measurements, calculated fields, aggregation types) and resolve every viz field from that manifest only.
 14. **Unresolved-field hard fail**: if any viz field is unresolved in the manifest, stop immediately and print the unresolved field names; do not issue visualization POST with guessed replacements.
 15. **No diagnostic side-scripts**: during normal execution, do not generate or run ad-hoc `_get_*` discovery scripts for field lookups; use one preflight manifest function/path.
+16. **Inline execution allowance**: under no-new-file constraints, run visualization/API operations inline (`python -c`, heredoc, or `curl`) instead of writing helper files; this constraint does not permit blocking on execution.

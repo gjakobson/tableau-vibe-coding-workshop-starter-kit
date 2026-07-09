@@ -40,6 +40,7 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 26. **Field manifest lock**: before any visualization POST, build one in-memory manifest from selected model metadata (SDOs, dimensions, measurements, calculated fields, and aggregation types) and resolve all payload fields from it.
 27. **Unresolved field hard fail**: if any requested visualization field cannot be resolved from the manifest, stop and report the exact missing field; do not guess, alias, or auto-edit field apiNames.
 28. **No diagnostic side-scripts lock**: in normal run mode, do not create ad-hoc `_get_*` helper scripts for field discovery; perform one manifest preflight and reuse it across the run.
+29. **Inline execution allowance lock**: when "no new files" constraints apply, execute API steps inline (`python -c`, `python` heredoc, or `curl`) rather than creating files; no-file mode is not a valid reason to stop execution.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 

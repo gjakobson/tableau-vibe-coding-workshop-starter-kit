@@ -343,6 +343,7 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 21. Field-manifest lock: before any visualization POST, build one in-memory field mapping manifest from the selected model (SDOs, dimensions, measurements, calculated fields, and aggregation types). All visualization fields must resolve from this manifest.
 22. Unresolved-field hard fail: if any visualization field is not found in the manifest, stop immediately and report the missing field; do not attempt API POST with guessed/edited field names.
 23. No diagnostic side-script lock: during normal execution do not create ad-hoc `_get_*`/inspection helper scripts to discover field names; use the single manifest preflight path instead.
+24. Inline-execution allowance lock: if execution is needed without writing files, run inline (`python -c`, `python - <<'PY' ... PY`, or `curl`). Do not treat "no new files" as a blocker to API execution.
 
 **Hard guardrail for opportunity detail card requests**
 
