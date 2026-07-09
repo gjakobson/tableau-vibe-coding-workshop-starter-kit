@@ -8,9 +8,9 @@ You describe the prospect, the persona, and the story. Claude builds the workspa
 
 ## What You Need
 
-**On your Mac:**
+**On your machine:**
 - [ ] [Claude Code](https://claude.ai/code) installed (VS Code extension)
-- [ ] Python 3.10+ — check by opening Terminal and typing `python3 --version`
+- [ ] Python 3.10+ — check with `python --version` (or `python3 --version`)
 - [ ] Salesforce CLI (`sf`) installed
 
 **In Salesforce:**
@@ -78,8 +78,10 @@ For each demo, Claude creates:
 To remove a demo from your org:
 
 ```bash
-python3 next_teardown.py
+python next_teardown.py
 ```
+
+If your environment uses `python3` instead, run `python3 next_teardown.py`.
 
 It lists every demo you've built and walks you through the cleanup.
 

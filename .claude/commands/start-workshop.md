@@ -8,7 +8,7 @@ When this skill is invoked, follow the workflow below exactly. Do not skip steps
 
 ## ENVIRONMENT
 
-- Python: use `python3` (fall back to `python3.13` if available at `/opt/homebrew/bin/python3.13`)
+- Python: use `python` first; if unavailable, use `python3` (or `/opt/homebrew/bin/python3.13` on macOS)
 - Required packages: `requests pandas numpy pyyaml`
 - Config file: `next_config.json` in the project folder
 - **Never hardcode credentials.** All scripts authenticate through Salesforce CLI (`sf`) and may read `next_config.json` for `target_org` and connector metadata:
@@ -180,7 +180,7 @@ and read `result.accessToken`.
 
 ### 1c — Collect credentials (only if no file or auth failed)
 
-> "Run `sf org login web --alias workshop` in your terminal (or `python3 next_auth.py`), then come back and I will continue."
+> "Run `sf org login web --alias workshop` in your terminal (or `python next_auth.py`; use `python3` if needed), then come back and I will continue."
 
 ---
 
@@ -340,7 +340,7 @@ Do NOT ask for a company name, prospect name, demo story, or signal onset — th
 
 **Script discipline — always follow this order:**
 1. Use the Write tool to write the complete `.py` script to disk
-2. Only then run it with `python3 <script_name>.py`
+2. Only then run it with `python <script_name>.py` (or `python3 <script_name>.py` if needed)
 
 **Always fetch the current model state before making any additions** — never assume field apiNames from memory. Always GET the model and rebuild the `field_api` lookup before referencing any field.
 

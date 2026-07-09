@@ -7,7 +7,7 @@ This guide gets you from zero to running your first demo in about 30 minutes.
 ## What You Need Before Starting
 
 - A Salesforce org with **Data Cloud / Tableau Next** provisioned
-- Python 3.10+ installed on your Mac (`/opt/homebrew/bin/python3.13` preferred)
+- Python 3.10+ installed (`python` command preferred; use `python3` if your system uses that)
 - Salesforce CLI installed (`sf`)
 - Claude Code installed and running
 
@@ -16,8 +16,10 @@ This guide gets you from zero to running your first demo in about 30 minutes.
 ## Step 1 — Install Python Dependencies
 
 ```bash
-/opt/homebrew/bin/python3.13 -m pip install requests pandas numpy
+python -m pip install requests pandas numpy
 ```
+
+If your machine uses `python3`, run `python3 -m pip install requests pandas numpy`.
 
 ---
 
@@ -116,7 +118,7 @@ Each `/start-workshop` run creates:
 | Dashboard | Tableau Next → Dashboards |
 | Demo guide (Markdown) | Project folder → `{bank}_{use_case}_demo_guide.md` |
 
-To tear down a demo environment: `python3 next_teardown.py`
+To tear down a demo environment: `python next_teardown.py` (or `python3 next_teardown.py`).
 
 ---
 
