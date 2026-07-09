@@ -32,7 +32,11 @@ def get_sf_cli_tokens(target_org: str | None = None) -> tuple[str, str, str]:
     if not alias:
         raise RuntimeError("No target org configured. Run `sf org login web --alias <alias>` first.")
 
-    token = run_sf_json(["org", "auth", "show-access-token", "--target-org", alias])
+    try:
+        token = run_sf_json(["org", "auth", "show-access-token", "--target-org", alias])
+    except Exception:
+        # Fallback for CLI variants where this command is unavailable.
+        token = run_sf_json(["force", "org", "display", "--target-org", alias, "--verbose"])
     details = run_sf_json(["org", "display", "--target-org", alias])
 
     sf_token = token.get("result", {}).get("accessToken")

@@ -21,13 +21,19 @@ def main():
         target_org = "workshop"
 
     alias, sf_token, sf_instance = get_sf_cli_tokens(target_org)
-    dc_token, dc_domain = exchange_dc_token(sf_instance, sf_token)
+    dc_domain = ""
+    try:
+        _, dc_domain = exchange_dc_token(sf_instance, sf_token)
+    except Exception as exc:
+        print(f"Data Cloud auth not available (non-blocking): {exc}")
+        print("Continuing with Salesforce-only setup.")
 
     cfg = {}
     if CONFIG_FILE.exists():
         cfg = json.loads(CONFIG_FILE.read_text())
     cfg["target_org"] = alias
-    cfg["data_cloud_domain"] = dc_domain
+    if dc_domain:
+        cfg["data_cloud_domain"] = dc_domain
     cfg.setdefault("ingestion_connector_name", "tableau_next_demo")
     cfg.setdefault("connector_sf_id", "")
     cfg.setdefault("connector_uuid_name", "")
@@ -35,7 +41,10 @@ def main():
 
     print(f"\nConnected to org alias: {alias}")
     print(f"Salesforce instance: {sf_instance}")
-    print(f"Data Cloud domain: {dc_domain}")
+    if dc_domain:
+        print(f"Data Cloud domain: {dc_domain}")
+    else:
+        print("Data Cloud domain: not configured")
     print(f"Saved: {CONFIG_FILE.name}")
     print("You're ready — run /start-workshop in Claude Code to begin.")
 

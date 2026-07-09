@@ -32,9 +32,9 @@ sf_instance = org["result"]["instanceUrl"]
 
 ---
 
-## AUTHENTICATION — CLI + Data Cloud exchange
+## AUTHENTICATION — SALESFORCE FIRST, DATA CLOUD OPTIONAL
 
-Authenticate to Salesforce via CLI, then exchange that token for Data Cloud:
+Always authenticate Salesforce first. Then attempt Data Cloud token exchange if available. Continue with semantics/viz/dashboard work even when Data Cloud is unavailable.
 
 ```python
 import json, subprocess, requests
@@ -48,6 +48,9 @@ def get_tokens(target_org="workshop"):
     ))
     sf_token = tok["result"]["accessToken"]
     sf_instance = org["result"]["instanceUrl"]
+
+    dc_token = None
+    dc_domain = None
     dc_resp = requests.post(
         f"{sf_instance}/services/a360/token",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -55,17 +58,17 @@ def get_tokens(target_org="workshop"):
               "subject_token": sf_token,
               "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"}
     )
-    dc_resp.raise_for_status()
-    dc_token  = dc_resp.json()["access_token"]
-    dc_domain = dc_resp.json()["instance_url"]
+    if dc_resp.ok:
+        dc_token = dc_resp.json()["access_token"]
+        dc_domain = dc_resp.json()["instance_url"]
     return sf_token, sf_instance, dc_token, dc_domain
 
 SF_HDRS  = {"Authorization": f"Bearer {sf_token}", "Content-Type": "application/json"}
-DC_HDRS  = {"Authorization": f"Bearer {dc_token}", "Content-Type": "application/json"}
+DC_HDRS  = {"Authorization": f"Bearer {dc_token}", "Content-Type": "application/json"} if dc_token else None
 BASE_SF  = f"{sf_instance}/services/data/v62.0"   # DC schema + stream registration
 BASE_SEM = f"{sf_instance}/services/data/v65.0"   # Semantics Layer + Workspaces
 BASE_VIZ = f"{sf_instance}/services/data/v66.0"   # Visualizations + Dashboards
-# All three use SF_HDRS. Only data ingestion uses DC_HDRS + BASE_DC.
+# All three use SF_HDRS. Data ingestion needs DC_HDRS + BASE_DC and is optional when DC is unavailable.
 ```
 
 ---
@@ -149,12 +152,12 @@ else:
               "subject_token": sf_token,
               "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"})
     if not r2.ok:
-        print("DC_AUTH_FAILED: " + str(r2.status_code) + " " + r2.text[:200])
+        print("AUTH_OK_NO_DC: " + sf_instance + " (Data Cloud scope unavailable)")
     else:
         print("AUTH_OK: " + sf_instance)
 ```
 
-**If auth succeeds** — ask:
+**If auth succeeds (`AUTH_OK` or `AUTH_OK_NO_DC`)** — ask:
 > "Connected to [sf_instance]. What's your name? Use the same name you used last time if you've been here before — I'll find your existing workspace and pick up where you left off."
 
 Wait for reply. Store as `USER_NAME`. Derive:
@@ -166,7 +169,14 @@ ASSET_SUFFIX   = f"-{USER_NAME}"    # appended to every label
 ASSET_PREFIX   = f"{user_slug}_"    # prepended to every apiName
 ```
 
-**If auth fails** → go to Step 1c.
+**If auth fails with `SF_AUTH_FAILED`** → go to Step 1c.
+
+Do not send the user to Step 1c for Data Cloud scope failures alone.
+Only `SF_AUTH_FAILED` should trigger the Step 1c login prompt.
+
+CLI compatibility note: if `sf org auth show-access-token` is unavailable in the local CLI version, use:
+`sf force org display --target-org <alias> --verbose --json`
+and read `result.accessToken`.
 
 ### 1c — Collect credentials (only if no file or auth failed)
 
