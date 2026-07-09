@@ -8,6 +8,7 @@ Run: /opt/homebrew/bin/python3.13 next_teardown.py
 
 import json, os, re, io, sys, zipfile, base64, time, requests
 from pathlib import Path
+from auth_cli import get_sf_cli_tokens
 
 CONFIG_FILE  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "next_config.json")
 REGISTRY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "next_demos.json")
@@ -78,21 +79,14 @@ if not os.path.exists(CONFIG_FILE):
     sys.exit(1)
 
 cfg = json.loads(Path(CONFIG_FILE).read_text())
-sf_login_url = cfg["sf_login_url"]
+target_org = cfg.get("target_org")
 
-print("  Connecting to Salesforce...")
-r = requests.post(f"{sf_login_url}/services/oauth2/token", data={
-    "grant_type":    "refresh_token",
-    "refresh_token": cfg["refresh_token"],
-    "client_id":     cfg["client_id"],
-    "client_secret": cfg["client_secret"],
-})
-if not r.ok:
-    print(f"  ❌ Authentication failed: {r.status_code} {r.text[:200]}")
+print("  Connecting to Salesforce via CLI auth...")
+try:
+    _, sf_token, sf_instance = get_sf_cli_tokens(target_org)
+except Exception as exc:
+    print(f"  ❌ Authentication failed: {exc}")
     sys.exit(1)
-
-sf_token    = r.json()["access_token"]
-sf_instance = r.json().get("instance_url", sf_login_url)
 print(f"  ✅ Connected to: {sf_instance}")
 
 HDR      = {"Authorization": f"Bearer {sf_token}", "Content-Type": "application/json"}

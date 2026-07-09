@@ -232,9 +232,14 @@ Write files to: `force-app/main/default/lwc/{componentName}/` (or `lwc/{componen
 # _deploy_lwc.py
 import base64, io, json, re, requests, time, zipfile
 from pathlib import Path
+import subprocess
 
-cfg = json.loads(Path("next_orgs.json").read_text())
-# ... auth (standard pattern) ...
+cfg = json.loads(Path("next_config.json").read_text()) if Path("next_config.json").exists() else {}
+target_org = cfg.get("target_org", "workshop")
+tok = json.loads(subprocess.check_output(["sf","org","auth","show-access-token","--target-org",target_org,"--json"], text=True))
+org = json.loads(subprocess.check_output(["sf","org","display","--target-org",target_org,"--json"], text=True))
+sf_token = tok["result"]["accessToken"]
+sf_instance = org["result"]["instanceUrl"]
 
 COMPONENT_NAME = "{componentName}"
 LWC_DIR        = Path("lwc") / COMPONENT_NAME

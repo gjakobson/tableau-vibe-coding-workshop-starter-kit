@@ -1,9 +1,6 @@
 {
-  "_instructions": "Copy this file to next_config.json and fill in your values. Never commit next_config.json to source control.",
-  "sf_login_url": "https://login.salesforce.com",
-  "client_id": "<Connected App Consumer Key>",
-  "client_secret": "<Connected App Consumer Secret>",
-  "refresh_token": "<OAuth Refresh Token — see PEER_SETUP.md for how to get this>",
+  "_instructions": "Copy this file to next_config.json and fill in your values. Auth is handled by Salesforce CLI login.",
+  "target_org": "workshop",
   "data_cloud_domain": "<your-dc-domain.c360a.salesforce.com (no https://)>",
   "ingestion_connector_name": "tableau_next_demo",
   "connector_sf_id": "",

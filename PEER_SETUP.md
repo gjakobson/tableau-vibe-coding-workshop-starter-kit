@@ -7,8 +7,8 @@ This guide gets you from zero to running your first demo in about 30 minutes.
 ## What You Need Before Starting
 
 - A Salesforce org with **Data Cloud / Tableau Next** provisioned
-- A Connected App in that org (see Step 2)
 - Python 3.10+ installed on your Mac (`/opt/homebrew/bin/python3.13` preferred)
+- Salesforce CLI installed (`sf`)
 - Claude Code installed and running
 
 ---
@@ -21,60 +21,18 @@ This guide gets you from zero to running your first demo in about 30 minutes.
 
 ---
 
-## Step 2 — Create a Connected App in Salesforce
+## Step 2 — Authenticate with Salesforce CLI
 
-You need a Connected App to authenticate via the API. If your org already has one set up for demo builders, skip to Step 3.
-
-1. In Salesforce Setup, search for **App Manager** → New Connected App
-2. Enable OAuth:
-   - Callback URL: `https://login.salesforce.com/services/oauth2/success`
-   - Selected OAuth Scopes:
-     - `cdp_ingest_api` (Access and manage your Data Cloud Ingestion API data)
-     - `cdp_query_api` (Access and manage your Data Cloud Query API data)
-     - `api` (Access the Salesforce APIs)
-     - `sfap_api` (Access Tableau Semantics Layer)
-     - `refresh_token` (Perform requests at any time)
-3. Enable **Client Credentials Flow** (under OAuth settings)
-4. Save and wait ~2 min for Salesforce to provision it
-5. Copy the **Consumer Key** (client_id) and **Consumer Secret** (client_secret)
-
----
-
-## Step 3 — Get a Refresh Token
-
-The scripts authenticate with a refresh token (long-lived, no browser re-login needed).
-
-**Easiest method — Salesforce CLI:**
+The workshop now uses CLI auth only.
 
 ```bash
-sf org login web --instance-url https://login.salesforce.com
-sf org display --verbose
+sf org login web --alias workshop
+sf org display --target-org workshop
 ```
-
-Look for `Sfdx Auth Url` in the output — it contains your refresh token after `refreshToken=`.
-
-**Alternative — OAuth flow in browser:**
-
-1. Construct this URL (replace CLIENT_ID with your Connected App's Consumer Key):
-   ```
-   https://login.salesforce.com/services/oauth2/authorize?response_type=code&client_id=CLIENT_ID&redirect_uri=https://login.salesforce.com/services/oauth2/success&scope=cdp_ingest_api+cdp_query_api+api+sfap_api+refresh_token
-   ```
-2. Open in browser, log in, authorize
-3. The callback URL will contain `?code=...` — copy that code
-4. Exchange it for tokens:
-   ```bash
-   curl -X POST https://login.salesforce.com/services/oauth2/token \
-     -d "grant_type=authorization_code" \
-     -d "client_id=YOUR_CLIENT_ID" \
-     -d "client_secret=YOUR_CLIENT_SECRET" \
-     -d "redirect_uri=https://login.salesforce.com/services/oauth2/success" \
-     -d "code=YOUR_CODE"
-   ```
-5. Copy `refresh_token` from the JSON response
 
 ---
 
-## Step 4 — Create Your Data Cloud Ingestion Connector
+## Step 3 — Create Your Data Cloud Ingestion Connector
 
 The scripts need a connector in Data Cloud to ingest synthetic data.
 
@@ -85,7 +43,7 @@ The scripts need a connector in Data Cloud to ingest synthetic data.
 
 ---
 
-## Step 5 — Configure Your Credentials
+## Step 4 — Configure `next_config.json`
 
 1. Copy the template:
    ```bash
@@ -94,10 +52,7 @@ The scripts need a connector in Data Cloud to ingest synthetic data.
 2. Edit `next_config.json` with your values:
    ```json
    {
-     "sf_login_url": "https://login.salesforce.com",
-     "client_id": "3MVG...",
-     "client_secret": "ABC123...",
-     "refresh_token": "5Aep...",
+     "target_org": "workshop",
      "data_cloud_domain": "yourorg.c360a.salesforce.com",
      "ingestion_connector_name": "tableau_next_demo",
      "connector_sf_id": "",
@@ -106,11 +61,11 @@ The scripts need a connector in Data Cloud to ingest synthetic data.
    ```
 3. The `connector_sf_id` and `connector_uuid_name` fields start empty — the script fills them in automatically on the first run and saves them back to the file.
 
-> **IMPORTANT:** Never share or commit `next_config.json`. It contains your credentials. The `.template.json` file is safe to share.
+> `next_config.json` should still stay local, but it no longer stores Connected App secrets or refresh tokens.
 
 ---
 
-## Step 6 — Install Claude Code and Load the Skill
+## Step 5 — Install Claude Code and Load the Skill
 
 1. Install Claude Code: `npm install -g @anthropic-ai/claude-code` (or follow Anthropic's docs)
 2. Open this project folder in Claude Code
@@ -118,7 +73,7 @@ The scripts need a connector in Data Cloud to ingest synthetic data.
 
 ---
 
-## Step 7 — Build Your First Demo
+## Step 6 — Build Your First Demo
 
 Open Claude Code in this project folder and type:
 
@@ -139,7 +94,7 @@ Reply **go** when the plan looks right. The script runs automatically — total 
 
 | Problem | Fix |
 |---|---|
-| `Authentication failed` | Check `client_id`, `client_secret`, and `refresh_token` in `next_config.json` |
+| `Authentication failed` | Re-run `sf org login web --alias workshop`, then retry |
 | `connector_sf_id not found` | Make sure the connector is named exactly `tableau_next_demo` in Data Cloud Setup |
 | `DLO ACTIVE timeout` | The org may be slow — re-run the script; it's idempotent |
 | `409 Conflict on bulk job` | A previous job is still running — wait 5 min and re-run |

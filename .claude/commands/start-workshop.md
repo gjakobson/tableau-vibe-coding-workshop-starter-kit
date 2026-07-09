@@ -11,51 +11,43 @@ When this skill is invoked, follow the workflow below exactly. Do not skip steps
 - Python: use `python3` (fall back to `python3.13` if available at `/opt/homebrew/bin/python3.13`)
 - Required packages: `requests pandas numpy pyyaml`
 - Config file: `next_config.json` in the project folder
-- **Never hardcode credentials.** All scripts read from `next_orgs.json` (preferred) or `next_config.json`:
+- **Never hardcode credentials.** All scripts authenticate through Salesforce CLI (`sf`) and may read `next_config.json` for `target_org` and connector metadata:
 
 ```python
-import json, os, sys
+import json, subprocess
 from pathlib import Path
 
-_DIR = os.path.dirname(os.path.abspath(__file__))
+cfg = json.loads(Path("next_config.json").read_text()) if Path("next_config.json").exists() else {}
+target_org = cfg.get("target_org", "workshop")
 
-def load_config(org_name=None):
-    orgs_file   = os.path.join(_DIR, "next_orgs.json")
-    config_file = os.path.join(_DIR, "next_config.json")
-    if os.path.exists(orgs_file):
-        orgs = json.loads(Path(orgs_file).read_text()).get("orgs", {})
-        if not orgs:
-            print("\n  next_orgs.json has no orgs. Ask Claude to run setup.")
-            sys.exit(1)
-        if org_name and org_name in orgs:
-            return orgs[org_name]
-        return next(iter(orgs.values()))
-    elif os.path.exists(config_file):
-        return json.loads(Path(config_file).read_text())
-    else:
-        print("\n  No credentials found. Ask Claude to run setup.")
-        sys.exit(1)
+tok = json.loads(subprocess.check_output(
+    ["sf", "org", "auth", "show-access-token", "--target-org", target_org, "--json"], text=True
+))
+org = json.loads(subprocess.check_output(
+    ["sf", "org", "display", "--target-org", target_org, "--json"], text=True
+))
+sf_token = tok["result"]["accessToken"]
+sf_instance = org["result"]["instanceUrl"]
 ```
 
 ---
 
-## AUTHENTICATION — TWO-STEP OAUTH
+## AUTHENTICATION — CLI + Data Cloud exchange
 
-Data Cloud requires two token exchanges. Always follow this sequence:
+Authenticate to Salesforce via CLI, then exchange that token for Data Cloud:
 
 ```python
-import requests
+import json, subprocess, requests
 
-def get_tokens(config):
-    sf_resp = requests.post(
-        f"{config['sf_login_url']}/services/oauth2/token",
-        data={"grant_type": "refresh_token", "refresh_token": config["refresh_token"],
-              "client_id": config["client_id"], "client_secret": config["client_secret"]}
-    )
-    sf_resp.raise_for_status()
-    sf_token    = sf_resp.json()["access_token"]
-    sf_instance = sf_resp.json()["instance_url"]
-
+def get_tokens(target_org="workshop"):
+    tok = json.loads(subprocess.check_output(
+        ["sf", "org", "auth", "show-access-token", "--target-org", target_org, "--json"], text=True
+    ))
+    org = json.loads(subprocess.check_output(
+        ["sf", "org", "display", "--target-org", target_org, "--json"], text=True
+    ))
+    sf_token = tok["result"]["accessToken"]
+    sf_instance = org["result"]["instanceUrl"]
     dc_resp = requests.post(
         f"{sf_instance}/services/a360/token",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -126,14 +118,12 @@ Every asset created in the session gets the user's name in its label and apiName
 ### 1a — Check for credentials file
 
 Use the Read tool to check in this order:
-1. `next_orgs.json` in the project folder
-2. `next_config.json` in the project folder
+1. `next_config.json` in the project folder (optional, for `target_org`)
+2. fallback default org from Salesforce CLI (`sf org display`)
 
-**If neither exists** → go to Step 1c.
+**If no target org is configured** → use CLI default org.
 
-**If `next_orgs.json` exists**: read it. If 1 org, use automatically. If 2+ orgs, present a numbered list and wait for the user to choose.
-
-**If only `next_config.json`** → use it as-is.
+If `next_config.json` includes `target_org`, use it.
 
 ### 1b — Verify authentication
 
@@ -142,17 +132,17 @@ Write and run `_check_auth.py`:
 ```python
 import json, requests
 from pathlib import Path
+import subprocess
 
-cfg = json.loads(Path("next_config.json").read_text())
-r = requests.post(cfg["sf_login_url"] + "/services/oauth2/token", data={
-    "grant_type": "refresh_token", "client_id": cfg["client_id"],
-    "client_secret": cfg["client_secret"], "refresh_token": cfg["refresh_token"],
-})
-if not r.ok:
-    print("SF_AUTH_FAILED: " + str(r.status_code) + " " + r.text[:200])
+cfg = json.loads(Path("next_config.json").read_text()) if Path("next_config.json").exists() else {}
+target_org = cfg.get("target_org", "workshop")
+tok = subprocess.run(["sf","org","auth","show-access-token","--target-org",target_org,"--json"], capture_output=True, text=True)
+org = subprocess.run(["sf","org","display","--target-org",target_org,"--json"], capture_output=True, text=True)
+if tok.returncode != 0 or org.returncode != 0:
+    print("SF_AUTH_FAILED: login missing or invalid org alias")
 else:
-    sf_token = r.json()["access_token"]
-    sf_instance = r.json()["instance_url"]
+    sf_token = json.loads(tok.stdout)["result"]["accessToken"]
+    sf_instance = json.loads(org.stdout)["result"]["instanceUrl"]
     r2 = requests.post(sf_instance + "/services/a360/token",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         data={"grant_type": "urn:salesforce:grant-type:external:cdp",
@@ -180,7 +170,7 @@ ASSET_PREFIX   = f"{user_slug}_"    # prepended to every apiName
 
 ### 1c — Collect credentials (only if no file or auth failed)
 
-> "Run `python3 next_auth.py` in your terminal. It will open a browser for OAuth and save everything to `next_orgs.json`. Come back when it says **You're ready**."
+> "Run `sf org login web --alias workshop` in your terminal (or `python3 next_auth.py`), then come back and I will continue."
 
 ---
 
@@ -217,12 +207,12 @@ warnings.filterwarnings('ignore')
 from pathlib import Path
 
 cfg = json.loads(Path("next_config.json").read_text())
-r = requests.post(cfg["sf_login_url"] + "/services/oauth2/token", data={
-    "grant_type": "refresh_token", "client_id": cfg["client_id"],
-    "client_secret": cfg["client_secret"], "refresh_token": cfg["refresh_token"],
-})
-sf_token    = r.json()["access_token"]
-sf_instance = r.json()["instance_url"]
+import subprocess
+target_org = cfg.get("target_org", "workshop")
+tok = json.loads(subprocess.check_output(["sf","org","auth","show-access-token","--target-org",target_org,"--json"], text=True))
+org = json.loads(subprocess.check_output(["sf","org","display","--target-org",target_org,"--json"], text=True))
+sf_token    = tok["result"]["accessToken"]
+sf_instance = org["result"]["instanceUrl"]
 SF_HDRS = {"Authorization": "Bearer " + sf_token, "Content-Type": "application/json"}
 BASE_SEM = sf_instance + "/services/data/v65.0"
 

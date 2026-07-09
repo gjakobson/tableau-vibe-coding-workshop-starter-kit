@@ -25,10 +25,10 @@ All requests require Bearer token authentication:
 -H "Content-Type: application/json"
 ```
 
-**Getting an Access Token:**
-- OAuth 2.0 Web Server Flow
-- OAuth 2.0 Username-Password Flow
-- Connected App with JWT Bearer Token Flow
+**Getting an Access Token (workshop standard):**
+- Salesforce CLI login: `sf org login web --alias <org>`
+- Token retrieval: `sf org auth show-access-token --target-org <org> --json`
+- Instance URL: `sf org display --target-org <org> --json`
 
 **Required Permissions:**
 - View Tableau Next Assets
@@ -429,7 +429,7 @@ curl -X GET \
 ## Additional Resources
 
 - [Salesforce Tableau Next REST API Docs](https://developer.salesforce.com/docs/analytics/tableau-next-rest-api/guide/resources_overview.html)
-- [OAuth 2.0 Authentication Guide](https://help.salesforce.com/s/articleView?id=sf.remoteaccess_oauth_flows.htm)
+- [Salesforce CLI Auth Commands](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_org_commands_unified.htm)
 - [SKILL.md](SKILL.md) - Main authoring workflow
 - [chart-catalog.md](chart-catalog.md) - Visualization templates
 - [examples.md](examples.md) - Complete workflows

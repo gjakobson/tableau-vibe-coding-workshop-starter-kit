@@ -40,7 +40,7 @@ If the user opens with "hello", "hi", "help", "what can you do", or anything tha
 ## Environment
 
 - Python: `/opt/homebrew/bin/python3.13`
-- Credentials are stored in `next_orgs.json` (or `next_config.json`) in the project folder — always read from there, never hardcode or prompt interactively
+- Authentication is CLI-based. Use Salesforce CLI (`sf`) for org login and token retrieval; `next_config.json` stores non-secret defaults like `target_org`.
 
 ---
 

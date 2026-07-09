@@ -1,25 +1,12 @@
-import json
 from pathlib import Path
 
 import requests
+from auth_cli import get_sf_cli_tokens, load_next_config
 
 
 DASHBOARD_NAME = "gabe_sales_pipeline_dashboard"
 WIDGET_NAME = "ext_opportunity_profile_card"
 TARGET_ROWSPAN = 34
-
-
-def load_config():
-    orgs_file = Path("next_orgs.json")
-    cfg_file = Path("next_config.json")
-    if orgs_file.exists():
-        data = json.loads(orgs_file.read_text())
-        orgs = data.get("orgs", {})
-        if orgs:
-            return next(iter(orgs.values()))
-    if cfg_file.exists():
-        return json.loads(cfg_file.read_text())
-    raise SystemExit("No credentials found in next_orgs.json or next_config.json")
 
 
 def clean_widget(widget):
@@ -33,19 +20,8 @@ def clean_widget(widget):
     return cleaned
 
 
-cfg = load_config()
-auth = requests.post(
-    cfg["sf_login_url"] + "/services/oauth2/token",
-    data={
-        "grant_type": "refresh_token",
-        "client_id": cfg["client_id"],
-        "client_secret": cfg["client_secret"],
-        "refresh_token": cfg["refresh_token"],
-    },
-)
-auth.raise_for_status()
-sf_token = auth.json()["access_token"]
-sf_instance = auth.json()["instance_url"]
+cfg = load_next_config(Path("next_config.json"))
+_, sf_token, sf_instance = get_sf_cli_tokens(cfg.get("target_org"))
 
 sf_headers = {"Authorization": f"Bearer {sf_token}", "Content-Type": "application/json"}
 base_viz = f"{sf_instance}/services/data/v66.0"
