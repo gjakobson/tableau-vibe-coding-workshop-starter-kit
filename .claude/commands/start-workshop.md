@@ -279,6 +279,17 @@ Present a clean summary, then ask:
 
 **Read the relevant reference file(s) before writing any code.**
 
+**Option 1 fast path (single calc field / metric request)**
+
+If the user selects only option `1`, use a deterministic 5-step flow and avoid iterative trial-and-error:
+1. Preflight the selected model once: resolve target SDO/fields and enforce constraints before POST (description <= 255 chars, valid formula level, valid aggregation semantics).
+2. Decide idempotency mode once: if target apiNames already exist, either skip-create or delete-and-recreate in a single explicit branch (do not bounce between both).
+3. Create calculated field with correct `aggregationType` for formula level (for aggregate formulas use `UserAgg`).
+4. Create metric with `aggregationType` consistent with the referenced calculated field semantics (do not force mismatched values like `Average` vs `UserAgg`).
+5. Use ASCII-only script output (`[OK]`, `[WARN]`, `[ERROR]`) for cross-platform terminal compatibility; do not emit Unicode symbols.
+
+Hard stop rule for option `1`: maximum one retry per failing API operation after a concrete fix. If still failing, stop and ask the user with the exact API error.
+
 **Fast Path mode (default for options 1,2,3,4 together)**
 
 If the user selects multiple build options at once (especially `1,2,3,4`), execute in one pass but with strict deterministic gates:

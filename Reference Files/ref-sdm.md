@@ -4,6 +4,25 @@ Read this file when the user wants to add calculated fields, metrics, relationsh
 
 ---
 
+## FAST PATH — OPTION 1 (CALC FIELD + METRIC)
+
+Use this when the user asks for a single calculated field/metric (for example "Win Rate").
+
+Execution order:
+1. **Preflight once**: inspect model fields and validate constraints before POST.
+2. **Set idempotency mode once**: skip-create or delete-and-recreate by apiName; do not alternate modes mid-run.
+3. **Create calc measurement** with valid formula level and aggregation semantics.
+4. **Create metric** with aggregation semantics aligned to the calc measurement.
+5. **Validate and stop**: if one retry after a concrete fix still fails, stop and ask user with exact API error.
+
+Guardrails:
+- Description max length: 255 chars.
+- Aggregate-function calc formulas require `aggregationType: "UserAgg"`.
+- Metric aggregation must be compatible with the referenced calc aggregation semantics.
+- Use ASCII logging in generated scripts (`[OK]`, `[WARN]`, `[ERROR]`) for Windows/macOS console compatibility.
+
+---
+
 ## CONCIERGE OPTIMIZATION — DESIGN PRINCIPLES
 
 Apply all of these before writing any SDM code.
