@@ -306,6 +306,29 @@ For visualization/dashboard work, these are blocking requirements:
 10. KPI row requirement: if the selected model has one or more available metrics, dashboard step must include a top KPI row (up to 4 metric tiles) before the visualization grid.
 11. KPI skip contract: if KPI tiles are omitted, print explicit reason in output (for example "no metrics available in model" or "metric IDs unresolved after fetch") before finalizing.
 
+### Sales pipeline golden pattern (required for options 2/3 when theme is Sales pipeline)
+
+When the selected theme is **Sales pipeline** and the user asks for visualizations/dashboard (options `2`, `3`, or `8`), use this exact chart strategy first:
+
+1. **Clone known-good org visualizations** instead of building those two charts from scratch:
+   - `Pipeline_Performance_Trend` -> `{user_slug}_pipeline_trend_v2`
+   - `Open_Pipeline_by_Opportunity_Stage` -> `{user_slug}_pipeline_by_stage_v2`
+2. Preserve the proven `visualSpecification` + `fields` structure from the source visualization; only change:
+   - `name`
+   - `label` (append `-{USER_NAME}`)
+   - `workspace.name` (set to the user's workspace)
+   - `dataSource.name` (set to the selected model apiName from discovery)
+3. **Do not simplify or normalize** mark/axis/style payloads for these two charts in this flow. Reuse the source payload structure as-is except for the four identity fields above.
+4. After cloning each chart, run render validation in dashboard context before continuing.
+5. Build the final dashboard using these cloned names as the primary visualization widgets.
+6. Keep KPI row behavior unchanged (4 KPI tiles preferred for Sales pipeline): Total Sales, Win Rate, # of Opportunities, Weighted Pipeline Value.
+7. Before cloning, delete any existing `{user_slug}_pipeline_trend_v2` and `{user_slug}_pipeline_by_stage_v2` visualizations in the target workspace so reruns are deterministic and do not accumulate stale artifacts.
+
+If either source visualization is missing in the org:
+- Stop and tell the user exactly which source is missing.
+- Fall back to template creation from `Reference Files/ref-viz.md` only after explicit user confirmation.
+- In fallback mode, enforce strict UserAgg compatibility (`function: "UserAgg"` for UserAgg calculated measures; never force `Sum`/`Avg`).
+
 **Option 1 fast path (single calc field / metric request)**
 
 If the user selects only option `1`, use a deterministic 5-step flow and avoid iterative trial-and-error:
