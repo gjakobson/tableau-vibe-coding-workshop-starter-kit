@@ -323,6 +323,10 @@ When the selected theme is **Sales pipeline** and the user asks for visualizatio
 5. Build the final dashboard using these cloned names as the primary visualization widgets.
 6. Keep KPI row behavior unchanged (4 KPI tiles preferred for Sales pipeline): Total Sales, Win Rate, # of Opportunities, Weighted Pipeline Value.
 7. Before cloning, delete any existing `{user_slug}_pipeline_trend_v2` and `{user_slug}_pipeline_by_stage_v2` visualizations in the target workspace so reruns are deterministic and do not accumulate stale artifacts.
+8. Clone hygiene lock: before POSTing a cloned visualization, recursively strip read-only fields from the source payload (`id`, `status`, `isOriginal`, `createdDate`, `createdBy`, `lastModifiedDate`, `lastModifiedBy`, `url`).
+9. Source-structure lock: for cloned charts, keep `fields`, `view`, and `visualSpecification` exactly from the source except identity fields; do not rebuild style/marks manually.
+10. Dashboard rewire lock: when rerunning in an existing workspace, patch dashboard widget sources (`viz_1`, `viz_2`) to the newly cloned visualization IDs/names in the same run.
+11. Render evidence lock: for each cloned chart, create a temporary one-viz dashboard and require HTTP 201 before proceeding; delete the temp dashboard after validation.
 
 If either source visualization is missing in the org:
 - Stop and tell the user exactly which source is missing.
