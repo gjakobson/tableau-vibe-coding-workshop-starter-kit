@@ -43,6 +43,9 @@ Use this mode when users ask for multiple steps at once (for example charts + da
 29. **Inline execution allowance lock**: when "no new files" constraints apply, execute API steps inline (`python -c`, `python` heredoc, or `curl`) rather than creating files; no-file mode is not a valid reason to stop execution.
 30. **Chart intent immutability lock**: after declaring visualization plan, do not change chart purpose/field set/mark type as a fallback to force success. Stop and report failure unless user explicitly approves a new chart intent.
 31. **Render-proof dashboard gate lock**: dashboard creation or patching is blocked until every required visualization includes explicit render validation proof from this run.
+32. **Mandatory preflight message lock**: before execution, emit a separate preflight block with intended file/path touches, execution mode, and explicit `New files to create: none` when no-file constraints are active.
+33. **Structural checklist lock**: for options 1-3, enforce and print this sequence per visualization: manifest built, payload field bindings printed, single POST attempt, render validation result, then continue or stop.
+34. **Violation abort lock**: if any hard lock is violated in-session, abort immediately and report the violation; do not continue with corrective improvisation in the same run.
 
 If a gate fails, do not continue the one-pass run blindly; repair at the failing step and resume.
 

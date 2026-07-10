@@ -199,3 +199,6 @@ viz_name = result.get("apiName") or result.get("name")
 16. **Inline execution allowance**: under no-new-file constraints, run visualization/API operations inline (`python -c`, heredoc, or `curl`) instead of writing helper files; this constraint does not permit blocking on execution.
 17. **Chart intent immutability**: once a visualization intent is declared (goal + key fields + mark type), do not switch to a different fallback chart to pass API validation unless the user explicitly approves intent change.
 18. **Render proof requirement**: for each required visualization, capture explicit render-validation evidence in dashboard context before continuing to dashboard assembly.
+19. **Preflight declaration requirement**: before creating visualizations, print a standalone preflight declaration listing touched files/paths and confirming whether new files will be created.
+20. **Checklist execution requirement**: per visualization, print `payload fields`, execute one POST, print response/result, then print render-validation evidence; do not continue silently.
+21. **Violation abort requirement**: if any hard rule is broken, stop immediately and report the exact violated rule instead of attempting in-session recovery loops.

@@ -346,6 +346,9 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 24. Inline-execution allowance lock: if execution is needed without writing files, run inline (`python -c`, `python - <<'PY' ... PY`, or `curl`). Do not treat "no new files" as a blocker to API execution.
 25. Chart intent immutability lock: once the run declares its visualization plan (chart purpose, primary fields, and mark types), do not swap to different chart intents to bypass failures. Any intent change requires explicit user confirmation.
 26. Render-proof dashboard gate lock: do not create or patch a dashboard until each required visualization has explicit render validation evidence in dashboard context for the current run.
+27. Mandatory preflight message lock: before executing build steps, print a standalone preflight block listing files/paths to touch, execution mode (inline vs existing script), and `New files to create: none` when constrained.
+28. Structural checklist lock: for options 1-3, print and satisfy this exact checklist in order: `manifest built` -> `payload fields printed` -> `POST once` -> `render validated` -> `next viz or stop`.
+29. Violation abort lock: on first contract violation (for example creating an ad-hoc file, changing chart intent without approval, or retrying beyond cap), stop the session immediately and report violation; do not continue in the same run.
 
 **Hard guardrail for opportunity detail card requests**
 
