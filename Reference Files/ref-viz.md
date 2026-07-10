@@ -10,7 +10,7 @@ Read this file when creating or modifying Tableau Next visualizations via API.
 
 ```python
 from viz_helpers import (
-    calc_measure, calc_dim, raw_measure, raw_dim,
+    calc_measure, calc_dim, raw_measure, raw_dim, raw_date_dim,
     axis_number, axis_date, pane_format, build_viz_style,
     create_visualization,
 )
@@ -63,6 +63,11 @@ pipeline_by_region = create_visualization(
 | `"Circle"` | Trend/time-series (individual dots) | `{"isAutomatic": False, "type": "Percentage", "value": 2}` — minimum; larger = huge blobs |
 | `"Bar"` | Category breakdowns | `{"isAutomatic": False, "type": "Percentage", "value": 75}` |
 | `"Line"` | Connected line trend | `{"isAutomatic": False, "type": "Pixel", "value": 2}` |
+
+**Axis fields must be continuous**: any field that gets an `axis_number()` / `axis_date()` entry MUST be `displayCategory: "Continuous"`. A discrete field under an axis config is rejected with `INVALID_VISUALIZATION_METADATA: axis can have only continuous fields`. Consequences for date trends:
+- A **calculated** date dim → `calc_dim(date_field, is_date=True)` (continuous, no objectName needed).
+- A **raw** date column on an object → `raw_date_dim(field, object_name)` — NOT `raw_dim()`, which is always discrete. This is the exact mismatch that fails a "sales over time by close date" chart: `raw_dim("CloseDate", "Opportunity")` + `axis_date("F2")` → discrete field on an axis → rejected.
+- If you genuinely want discrete date buckets (categorical months), do the opposite: keep the field discrete and give it an `allHeaders.fields` entry via `build_viz_style(dim_row_keys=[...])`, with NO axis entry.
 
 **Sorting**: `sortOrders` only works for `mode="Table"` — cannot sort bar/line charts via API.
 

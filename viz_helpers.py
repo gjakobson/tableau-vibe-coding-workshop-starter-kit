@@ -48,6 +48,18 @@ def raw_dim(field_name, object_name, label=None):
     return f
 
 
+def raw_date_dim(field_name, object_name, label=None):
+    # Continuous raw date field — REQUIRED for a date on a chart axis (time trend).
+    # raw_dim() emits displayCategory="Discrete", and the API rejects a discrete
+    # field under an axis config with INVALID_VISUALIZATION_METADATA:
+    #   "axis can have only continuous fields".
+    # Use this (not raw_dim) whenever a raw date column drives axis_date().
+    f = {"type": "Field", "fieldName": field_name, "objectName": object_name,
+         "role": "Dimension", "displayCategory": "Continuous"}
+    if label: f["label"] = label
+    return f
+
+
 # ── Style constants ────────────────────────────────────────────────────────────
 VIZ_FONTS = {"actionableHeaders": {"color": "#0250D9", "size": 13},
              "axisTickLabels": {"color": "#2E2E2E", "size": 13},
