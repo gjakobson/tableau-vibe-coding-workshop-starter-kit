@@ -294,8 +294,8 @@ Present a clean summary, then ask:
 **Visualization + dashboard execution lock (options 2/3/4/8)**
 
 For visualization/dashboard work, these are blocking requirements:
-1. Template-copy lock: use the Read tool to open an actual working example file (for example one under `Reference Files/Dashboard Examples/*.json`, or a visualization payload that was successfully POSTed earlier in this run) and base the new payload directly on its literal keys and structure. Reading the prose in `ref-viz.md`/`ref-dashboard.md` is not a substitute — those explain concepts, the JSON example files are the source of truth for exact field names (e.g. `workspaceIdOrApiName`, not `workspace`).
-2. Do not hand-construct visualization/dashboard JSON from memory of the reference markdown when a working template/example file exists on disk.
+1. Import lock: `from viz_helpers import ...` and `from dashboard_helpers import ...` (repo root) for every visualization/dashboard payload. These modules are the confirmed-working payload builders — every required key (`legends`, `marks.stack`, `style.fonts`, `workspaceIdOrApiName`, `widgets` as a dict, etc.) was only discovered by trial and error against the live API in a prior run. Reading `ref-viz.md`/`ref-dashboard.md` prose and reconstructing a similar-looking payload dict by hand does NOT satisfy this rule — it is the exact failure mode these modules exist to prevent. If a helper doesn't cover a case you need, edit `viz_helpers.py`/`dashboard_helpers.py` directly; never fork the payload logic inline.
+2. No ad-hoc filenames: never write files named like `_build_*.py`, `_simple_*.py`, `_temp_*.py`, or similar throwaway names for visualization/dashboard creation. Writing a new script with a name like this mid-run is itself a signal that rule #1 is being violated — stop and use the imported helpers instead.
 3. Create visualization #1 first and validate all three checks before continuing: successful POST, response contains `name`, and renders in dashboard context.
 4. If visualization #1 fails any check, stop immediately. Do not create visualization #2+ until fixed.
 5. Visualization sequencing lock: visualization N+1 is forbidden until visualization N passes render gate.
@@ -317,7 +317,7 @@ If the user selects only option `1`, use a deterministic 5-step flow and avoid i
 4. Create metric with `aggregationType` consistent with the referenced calculated field semantics (do not force mismatched values like `Average` vs `UserAgg`).
 5. Use ASCII-only script output (`[OK]`, `[WARN]`, `[ERROR]`) for cross-platform terminal compatibility; do not emit Unicode symbols.
 
-Hard stop rule for option `1`: maximum one retry per failing API operation after a concrete fix. If still failing, stop and ask the user with the exact API error.
+Hard stop rule for option `1`: maximum one retry per failing API operation after a concrete fix. Before that retry, print `RETRY 1/1 for <operation>: <what changed and why>`. If it still fails, print `VIOLATION: retry cap exceeded for <operation>` and stop — ask the user with the exact API error instead of trying a third variant.
 
 **Fast Path mode (default for options 1,2,3,4 together)**
 
@@ -335,7 +335,7 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 11. Hard fail if any metadata/XML file is modified through regex replacement; use structured write operations only.
 12. Hard fail if visualization #1 succeeds creation but fails to render in dashboard; do not proceed to additional visualizations or dashboard finalization.
 13. Time budget lock: complete each phase within these targets, then hard stop and surface a blocking error (do not continue silently): discovery/mapping <= 90s, visualization #1 create+render <= 120s, each additional visualization <= 90s, dashboard assembly <= 90s, optional LWC deploy+attach <= 180s.
-14. Retry cap lock: maximum one retry per failing API operation after a concrete fix. If the retry fails, stop and ask the user instead of exploring additional branches.
+14. Retry cap lock: maximum one retry per failing API operation after a concrete fix. Before issuing that retry, print `RETRY 1/1 for <operation>: <what changed and why>` — if you're about to print a second RETRY line for the same operation, that is the violation itself; stop immediately, print `VIOLATION: retry cap exceeded for <operation>`, and ask the user instead of exploring additional branches.
 15. Path lock: for visualizations and dashboard creation, prefer existing repository templates/scripts and direct API payloads; do not generate new large ad-hoc orchestration scripts (>160 lines) during a normal run.
 16. Capability probe lock: perform one lightweight capability check up front (for example submetric endpoint availability). If unsupported, skip that branch for the rest of the run.
 17. Prompt minimization lock: when user already provided option numbers and theme/chart intent, do not ask additional planning questions; proceed directly with execution.
