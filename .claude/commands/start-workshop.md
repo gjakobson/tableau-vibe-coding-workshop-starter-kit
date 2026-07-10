@@ -20,13 +20,13 @@ from pathlib import Path
 cfg = json.loads(Path("next_config.json").read_text()) if Path("next_config.json").exists() else {}
 target_org = cfg.get("target_org", "workshop")
 
-tok = json.loads(subprocess.check_output(
-    ["sf", "org", "auth", "show-access-token", "--target-org", target_org, "--json"], text=True
-))
+# `sf org display --json` returns BOTH accessToken and instanceUrl.
+# Do NOT use `sf org auth show-access-token` — it is absent on many CLI versions
+# and its nonzero exit is easily mistaken for "not authenticated".
 org = json.loads(subprocess.check_output(
     ["sf", "org", "display", "--target-org", target_org, "--json"], text=True
 ))
-sf_token = tok["result"]["accessToken"]
+sf_token = org["result"]["accessToken"]
 sf_instance = org["result"]["instanceUrl"]
 ```
 
@@ -40,13 +40,11 @@ Always authenticate Salesforce first. Then attempt Data Cloud token exchange if 
 import json, subprocess, requests
 
 def get_tokens(target_org="workshop"):
-    tok = json.loads(subprocess.check_output(
-        ["sf", "org", "auth", "show-access-token", "--target-org", target_org, "--json"], text=True
-    ))
+    # `sf org display --json` returns accessToken + instanceUrl on all current CLI versions.
     org = json.loads(subprocess.check_output(
         ["sf", "org", "display", "--target-org", target_org, "--json"], text=True
     ))
-    sf_token = tok["result"]["accessToken"]
+    sf_token = org["result"]["accessToken"]
     sf_instance = org["result"]["instanceUrl"]
 
     dc_token = None
@@ -136,31 +134,43 @@ If `next_config.json` includes `target_org`, use it.
 
 ### 1b — Verify authentication
 
-Write and run `_check_auth.py`:
+**Run the existing `_check_auth.py` in the repo** (`python3 _check_auth.py`). Do NOT rewrite it — it is already CLI-version-robust. Only write it (from the code below) if the file is missing.
 
 ```python
-import json, requests
+import json, subprocess
 from pathlib import Path
-import subprocess
+import requests
 
 cfg = json.loads(Path("next_config.json").read_text()) if Path("next_config.json").exists() else {}
 target_org = cfg.get("target_org", "workshop")
-tok = subprocess.run(["sf","org","auth","show-access-token","--target-org",target_org,"--json"], capture_output=True, text=True)
-org = subprocess.run(["sf","org","display","--target-org",target_org,"--json"], capture_output=True, text=True)
-if tok.returncode != 0 or org.returncode != 0:
-    print("SF_AUTH_FAILED: login missing or invalid org alias")
-else:
-    sf_token = json.loads(tok.stdout)["result"]["accessToken"]
-    sf_instance = json.loads(org.stdout)["result"]["instanceUrl"]
-    r2 = requests.post(sf_instance + "/services/a360/token",
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        data={"grant_type": "urn:salesforce:grant-type:external:cdp",
-              "subject_token": sf_token,
-              "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"})
-    if not r2.ok:
-        print("AUTH_OK_NO_DC: " + sf_instance + " (Data Cloud scope unavailable)")
-    else:
-        print("AUTH_OK: " + sf_instance)
+
+def sf_json(args):
+    p = subprocess.run(["sf", *args, "--json"], capture_output=True, text=True)
+    if p.returncode != 0:
+        return None
+    try:
+        return json.loads(p.stdout).get("result")
+    except Exception:
+        return None
+
+# `sf org display --json` returns BOTH accessToken and instanceUrl on modern CLI.
+# NEVER gate auth on `sf org auth show-access-token`: it does not exist on many CLI
+# versions, and its nonzero exit is the #1 cause of a FALSE "SF_AUTH_FAILED" on an
+# org that is actually logged in. Fall back to the legacy surface only if needed.
+res = sf_json(["org", "display", "--target-org", target_org]) \
+    or sf_json(["force", "org", "display", "--target-org", target_org, "--verbose"])
+
+if not res or not res.get("accessToken") or not res.get("instanceUrl"):
+    print(f"SF_AUTH_FAILED: org alias '{target_org}' is not logged in — run: sf org login web --alias {target_org}")
+    raise SystemExit(0)
+
+sf_token, sf_instance = res["accessToken"], res["instanceUrl"]
+r2 = requests.post(sf_instance + "/services/a360/token",
+    headers={"Content-Type": "application/x-www-form-urlencoded"},
+    data={"grant_type": "urn:salesforce:grant-type:external:cdp",
+          "subject_token": sf_token,
+          "subject_token_type": "urn:ietf:params:oauth:token-type:access_token"})
+print(("AUTH_OK: " if r2.ok else "AUTH_OK_NO_DC: ") + sf_instance + ("" if r2.ok else " (Data Cloud scope unavailable)"))
 ```
 
 Required behavior after running `_check_auth.py`:
@@ -168,6 +178,7 @@ Required behavior after running `_check_auth.py`:
 - `AUTH_OK_NO_DC` -> proceed.
 - `SF_AUTH_FAILED` -> then and only then show Step 1c.
 - Never ask "please authenticate" before executing this check.
+- `SF_AUTH_FAILED` means the org alias is genuinely not logged in. It does NOT mean "a CLI subcommand was missing" — the check above already handles CLI-version differences. If the user says they already authenticated, do not just re-run the identical failing command and re-report failure: verify with `sf org list` / `sf org display --target-org <alias> --json` that the alias is connected, and trust a live `accessToken` in that output over any single command's exit code.
 
 **If auth succeeds (`AUTH_OK` or `AUTH_OK_NO_DC`)** — ask:
 > "Connected to [sf_instance]. What's your name? Use the same name you used last time if you've been here before — I'll find your existing workspace and pick up where you left off."
@@ -186,9 +197,7 @@ ASSET_PREFIX   = f"{user_slug}_"    # prepended to every apiName
 Do not send the user to Step 1c for Data Cloud scope failures alone.
 Only `SF_AUTH_FAILED` should trigger the Step 1c login prompt.
 
-CLI compatibility note: if `sf org auth show-access-token` is unavailable in the local CLI version, use:
-`sf force org display --target-org <alias> --verbose --json`
-and read `result.accessToken`.
+CLI note: token retrieval uses `sf org display --target-org <alias> --json` (returns `result.accessToken` + `result.instanceUrl`). The legacy `sf force org display --verbose --json` is the only fallback needed. Do not use `sf org auth show-access-token` — it is not present on all CLI versions.
 
 ### 1c — Collect credentials (only if no file or auth failed)
 
@@ -231,9 +240,8 @@ from pathlib import Path
 cfg = json.loads(Path("next_config.json").read_text())
 import subprocess
 target_org = cfg.get("target_org", "workshop")
-tok = json.loads(subprocess.check_output(["sf","org","auth","show-access-token","--target-org",target_org,"--json"], text=True))
 org = json.loads(subprocess.check_output(["sf","org","display","--target-org",target_org,"--json"], text=True))
-sf_token    = tok["result"]["accessToken"]
+sf_token    = org["result"]["accessToken"]
 sf_instance = org["result"]["instanceUrl"]
 SF_HDRS = {"Authorization": "Bearer " + sf_token, "Content-Type": "application/json"}
 BASE_SEM = sf_instance + "/services/data/v65.0"
