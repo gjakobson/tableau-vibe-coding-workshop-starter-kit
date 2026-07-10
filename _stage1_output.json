@@ -1,0 +1,92 @@
+{
+  "sf_instance": "https://orgfarm-de51d92008.my.salesforce.com",
+  "workspace": "gabejuly9v15",
+  "model": "Sales_Cloud_00Dfj00000UhjS1EAJ",
+  "calc_api": "gabejuly9v15_avg_probability_clc",
+  "metric_api": "gabejuly9v15_avg_probability_mtc",
+  "metric_by_label": {
+    "Avg Deal Size (Won)": {
+      "apiName": "Avg_Deal_Size_Won_mtc",
+      "id": "1DOfj000002mHF7GAM"
+    },
+    "Total Sales": {
+      "apiName": "Total_Sales_mtc",
+      "id": "1DOfj000002mHGjGAM"
+    },
+    "# of Opportunities": {
+      "apiName": "of_Opportunities_mtc",
+      "id": "1DOfj000002mHILGA2"
+    },
+    "Closed Cases": {
+      "apiName": "Closed_Cases_mtc",
+      "id": "1DOfj000002mHJxGAM"
+    },
+    "Conversion Rate": {
+      "apiName": "Conversion_Rate_mtc",
+      "id": "1DOfj000002mHLZGA2"
+    },
+    "Open Opportunities": {
+      "apiName": "Open_Opportunities",
+      "id": "1DOfj000002mHNBGA2"
+    },
+    "Resolution Time": {
+      "apiName": "Resolution_Time_mtc",
+      "id": "1DOfj000002mHOnGAM"
+    },
+    "Total Sales (Cumulative)": {
+      "apiName": "Total_Sales_Cumulative_mtc",
+      "id": "1DOfj000002mHQPGA2"
+    },
+    "Closed Opportunities": {
+      "apiName": "Closed_Opportunities_mtc",
+      "id": "1DOfj000002mHS1GAM"
+    },
+    "Average NPS": {
+      "apiName": "Net_Promoter_Score_mtc",
+      "id": "1DOfj000002mHTdGAM"
+    },
+    "Win Rate": {
+      "apiName": "Win_Rate_mtc",
+      "id": "1DOfj000002mG4YGAU"
+    },
+    "Average CSAT": {
+      "apiName": "Customer_Satisfaction_mtc",
+      "id": "1DOfj000002mHVFGA2"
+    },
+    "Weighted Pipeline Value": {
+      "apiName": "Weighted_Pipeline_Value_mtc",
+      "id": "1DOfj000002mHWrGAM"
+    },
+    "Created Cases": {
+      "apiName": "Created_Cases_mtc",
+      "id": "1DOfj000002mHYTGA2"
+    },
+    "Sales Cycle (Won)": {
+      "apiName": "Sales_Cycle_Won_mtc",
+      "id": "1DOfj000002mHa5GAE"
+    },
+    "Pipeline Generation": {
+      "apiName": "Pipeline_Generation_mtc",
+      "id": "1DOfj000002mHbhGAE"
+    },
+    "Average Probability-gabeJuly9v11": {
+      "apiName": "gabejuly9v11_avg_probability_mtc",
+      "id": "1DOfj000002pOiHGAU"
+    },
+    "Average Probability-gabeJuly9v13": {
+      "apiName": "gabejuly9v13_avg_probability_mtc",
+      "id": "1DOfj000002pPG9GAM"
+    },
+    "Average Probability-gabeJuly9v15": {
+      "apiName": "gabejuly9v15_avg_probability_mtc",
+      "id": "1DOfj000002pQ2XGAU"
+    }
+  },
+  "selected_kpis": [
+    "Total Sales",
+    "Win Rate",
+    "# of Opportunities",
+    "Weighted Pipeline Value"
+  ],
+  "elapsed_seconds": 3.84
+}

@@ -1,0 +1,16 @@
+{
+  "created": [
+    {
+      "source": "Pipeline_Performance_Trend",
+      "name": "gabejuly9v15_pipeline_trend_v2",
+      "id": "1AKfj00000CQIC8GAP",
+      "label": "Pipeline Trend-gabeJuly9v15"
+    },
+    {
+      "source": "Open_Pipeline_by_Opportunity_Stage",
+      "name": "gabejuly9v15_pipeline_by_stage_v2",
+      "id": "1AKfj00000CQLgDGAX",
+      "label": "Pipeline by Stage-gabeJuly9v15"
+    }
+  ]
+}
