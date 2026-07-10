@@ -6,30 +6,137 @@ Read this file when creating or modifying Tableau Next visualizations via API.
 
 ## STEP M — Visualizations (CONFIRMED WORKING — v66.0)
 
-**Do not write these functions inline. Import them:**
-
-```python
-from viz_helpers import (
-    calc_measure, calc_dim, raw_measure, raw_dim, raw_date_dim,
-    axis_number, axis_date, pane_format, build_viz_style,
-    create_visualization,
-)
-```
-
-`viz_helpers.py` (repo root) is the confirmed-working payload builder — every
-required key (`legends`, `marks.stack`, `marks.isAutomaticSize`, `style.fonts`,
-etc.) was only discovered by trial and error against the live API. Redefining
-these functions from memory, or hand-building a `visualSpecification` dict
-yourself, reliably drops one of those keys and produces the exact 400-error
-loop this module exists to prevent. If you think a helper is missing a case
-you need, edit `viz_helpers.py` itself — don't fork the logic inline.
-
 ```python
 BASE_VIZ = f"{sf_instance}/services/data/v66.0"
 
+# ── Field builder helpers ──────────────────────────────────────────────────────
+def calc_measure(field_name, label=None, function="Sum"):
+    # Match function to SDM aggregationType: "Sum" for Sum calcs, "Avg" for Average calcs
+    # NEVER use "UserAgg" for row-level calcs — causes ROW_LEVEL_CALC_AGG_VALIDATION_ERROR
+    f = {"type": "Field", "fieldName": field_name, "function": function,
+         "role": "Measure", "displayCategory": "Continuous"}
+    if label: f["label"] = label
+    return f
+
+def calc_dim(field_name, label=None, is_date=False):
+    f = {"type": "Field", "fieldName": field_name, "role": "Dimension",
+         "displayCategory": "Continuous" if is_date else "Discrete"}
+    if label: f["label"] = label
+    return f
+
+def raw_measure(field_name, object_name, func="Sum", label=None):
+    f = {"type": "Field", "fieldName": field_name, "objectName": object_name,
+         "function": func, "role": "Measure", "displayCategory": "Continuous"}
+    if label: f["label"] = label
+    return f
+
+def raw_dim(field_name, object_name, label=None):
+    f = {"type": "Field", "fieldName": field_name, "objectName": object_name,
+         "role": "Dimension", "displayCategory": "Discrete"}
+    if label: f["label"] = label
+    return f
+
+# ── Style constants ────────────────────────────────────────────────────────────
+VIZ_FONTS = {"actionableHeaders": {"color": "#0250D9", "size": 13},
+             "axisTickLabels": {"color": "#2E2E2E", "size": 13},
+             "fieldLabels": {"color": "#2E2E2E", "size": 13},
+             "headers": {"color": "#2E2E2E", "size": 13},
+             "legendLabels": {"color": "#2E2E2E", "size": 13},
+             "markLabels": {"color": "#2E2E2E", "size": 13},
+             "marks": {"color": "#2E2E2E", "size": 13}}
+VIZ_LINES = {"axisLine": {"color": "#C9C9C9"}, "fieldLabelDividerLine": {"color": "#C9C9C9"},
+             "separatorLine": {"color": "#C9C9C9"}, "zeroLine": {"color": "#C9C9C9"}}
+VIZ_SHADING = {"backgroundColor": "#FFFFFF", "banding": {"rows": {"color": "#E5E5E5"}}}
+
+def axis_number(field_key, title="", decimals=2):
+    return {field_key: {"isVisible": True, "isZeroLineVisible": True,
+                        "range": {"includeZero": True, "type": "Auto"},
+                        "scale": {"format": {"numberFormatInfo": {"decimalPlaces": decimals, "displayUnits": "Auto",
+                                                                  "includeThousandSeparator": True, "negativeValuesFormat": "Auto",
+                                                                  "prefix": "", "suffix": "", "type": "NumberShort"}}},
+                        "ticks": {"majorTicks": {"type": "Auto"}, "minorTicks": {"type": "Auto"}},
+                        "titleText": title}}
+
+def axis_date(field_key):
+    return {field_key: {"isVisible": True, "isZeroLineVisible": False,
+                        "range": {"includeZero": False, "type": "Auto"},
+                        "scale": {"format": {"dateTemplate": ""}},
+                        "ticks": {"majorTicks": {"type": "Auto"}, "minorTicks": {"type": "Auto"}}}}
+
+def pane_format(field_key, decimals=2, fmt_type="Number"):
+    # fmt_type: "Number", "Currency" — NEVER "Percent" (rejected by API)
+    return {field_key: {"defaults": {"format": {"numberFormatInfo": {"decimalPlaces": decimals, "displayUnits": "Auto",
+                                                                      "includeThousandSeparator": True, "negativeValuesFormat": "Auto",
+                                                                      "prefix": "", "suffix": "", "type": fmt_type}}}}}
+
+def build_viz_style(axis_dict, pane_dict, reverse_range=False, dim_row_keys=None, mark_type="Circle"):
+    # reverse_range=True for horizontal bar (dim on rows, measure on columns)
+    # dim_row_keys: list of field keys for dims on rows shelf — each needs allHeaders.fields entry
+    # mark_type: controls size defaults
+    fields_headers = {k: {"hiddenValues": [], "isVisible": True, "showMissingValues": False}
+                      for k in (dim_row_keys or [])}
+    if mark_type == "Bar":
+        size = {"isAutomatic": False, "type": "Percentage", "value": 75}
+    elif mark_type == "Line":
+        size = {"isAutomatic": False, "type": "Pixel", "value": 2}
+    else:  # Circle — use minimum; larger = huge blobs
+        size = {"isAutomatic": False, "type": "Percentage", "value": 2}
+    return {
+        "allHeaders": {"columns": {"mergeRepeatedCells": True, "showIndex": False},
+                       "fields": fields_headers,
+                       "rows": {"mergeRepeatedCells": True, "showIndex": False}},
+        "axis": axis_dict,
+        "fieldLabels": {"columns": {"showDividerLine": False, "showLabels": True},
+                        "rows": {"showDividerLine": False, "showLabels": True}},
+        "fit": "Standard",
+        "fonts": VIZ_FONTS,
+        "lines": VIZ_LINES,
+        "marks": {"ALL": {"color": {"color": ""}, "isAutomaticSize": False,
+                          "isStackingAxisCentered": False,
+                          "label": {"canOverlapLabels": False, "marksToLabel": {"type": "All"}, "showMarkLabels": False},
+                          "range": {"reverse": reverse_range},
+                          "size": size}},
+        "panes": pane_dict,
+        "referenceLines": {},
+        "shading": VIZ_SHADING,
+        "showDataPlaceholder": False,
+        "title": {"isVisible": True},
+        # DO NOT include "headers" key — even {} causes JSON_PARSER_ERROR at v66.0
+    }
+
+def create_visualization(label, name, sdm_name, workspace_name,
+                         fields_dict, rows, columns,
+                         mark_type="Bar", mark_auto=False,
+                         color_encoding=None, stacked=False, style=None):
+    encodings = [{"fieldKey": color_encoding, "type": "Color"}] if color_encoding else []
+    payload = {
+        "label": label, "name": name, "description": f"Auto-generated: {label}",
+        "dataSource": {"name": sdm_name, "type": "SemanticModel"},
+        "workspace":  {"name": workspace_name},
+        "fields":     fields_dict,
+        "interactions": [],
+        "view": {"label": f"{label} View", "name": f"{name}_view",
+                 "viewSpecification": {"filters": [], "sortOrders": {"columns": [], "fields": {}, "rows": []}}},
+        "visualSpecification": {
+            "columns": columns, "forecasts": {},
+            "legends": ({color_encoding: {"isVisible": True, "position": "Right", "title": {"isVisible": True}}} if color_encoding else {}),
+            "marks": {"ALL": {"encodings": encodings, "isAutomatic": mark_auto,
+                              "stack": {"isAutomatic": stacked, "isStacked": stacked}, "type": mark_type}},
+            "measureValues": [], "mode": "Visualization",   # MUST be "Visualization" not "Normal" or "Table"
+            "referenceLines": {}, "rows": rows, "style": style or {},
+        },
+    }
+    resp = requests.post(f"{BASE_VIZ}/tableau/visualizations", headers=SF_HDRS, json=payload)
+    if resp.ok:
+        result = resp.json()
+        print(f"  ✅ Visualization: {label}  id={result.get('id')}")
+        return result
+    else:
+        print(f"  ERROR '{label}': {resp.text[:400]}")
+        return None
+
 # ── Example visualizations ─────────────────────────────────────────────────────
 pipeline_trend = create_visualization(
-    SF_HDRS, BASE_VIZ,
     label="Pipeline Value — Monthly Trend", name=f"{model_api_name}_pipeline_trend",
     sdm_name=model_api_name, workspace_name=workspace_name,
     fields_dict={"F1": calc_measure("Total_Pipeline_Value_clc", "Pipeline Value ($)"),
@@ -40,7 +147,6 @@ pipeline_trend = create_visualization(
 )
 
 pipeline_by_region = create_visualization(
-    SF_HDRS, BASE_VIZ,
     label="Pipeline Value by Region", name=f"{model_api_name}_pipeline_by_region",
     sdm_name=model_api_name, workspace_name=workspace_name,
     fields_dict={"F1": calc_measure("Total_Pipeline_Value_clc", "Pipeline Value ($)"),
@@ -64,11 +170,6 @@ pipeline_by_region = create_visualization(
 | `"Bar"` | Category breakdowns | `{"isAutomatic": False, "type": "Percentage", "value": 75}` |
 | `"Line"` | Connected line trend | `{"isAutomatic": False, "type": "Pixel", "value": 2}` |
 
-**Axis fields must be continuous**: any field that gets an `axis_number()` / `axis_date()` entry MUST be `displayCategory: "Continuous"`. A discrete field under an axis config is rejected with `INVALID_VISUALIZATION_METADATA: axis can have only continuous fields`. Consequences for date trends:
-- A **calculated** date dim → `calc_dim(date_field, is_date=True)` (continuous, no objectName needed).
-- A **raw** date column on an object → `raw_date_dim(field, object_name)` — NOT `raw_dim()`, which is always discrete. This is the exact mismatch that fails a "sales over time by close date" chart: `raw_dim("CloseDate", "Opportunity")` + `axis_date("F2")` → discrete field on an axis → rejected.
-- If you genuinely want discrete date buckets (categorical months), do the opposite: keep the field discrete and give it an `allHeaders.fields` entry via `build_viz_style(dim_row_keys=[...])`, with NO axis entry.
-
 **Sorting**: `sortOrders` only works for `mode="Table"` — cannot sort bar/line charts via API.
 
 **Viz POST response key is `name`, not `apiName`** — always extract as:
@@ -78,39 +179,26 @@ viz_name = result.get("apiName") or result.get("name")
 
 ---
 
-## "Render validation" — what it actually means (READ THIS)
-
-The API **cannot** tell you whether a visualization renders. "Can't show visualization" is a *browser* render error, thrown when the dashboard opens — the API accepts the payload and returns 200 (see `troubleshooting.md`: "The API accepts the payload, but the viz breaks when opened"). So a POST returning `name`/`id` is NOT render proof, and no rule below is satisfied by "the POST succeeded."
-
-Do not self-certify "rendered." What you CAN do, and must:
-1. **Create with `minorVersion=8`** — the `create_visualization()` helper does this. A viz created on a different minor version than the renderer (8) is a top cause of "Can't show visualization." Never POST a tableau endpoint without it.
-2. **Pre-empt the two known render crashes** before POST:
-   - **Continuous field in a Table viz** → `AnalyticsError: Axes are not supported in RowHeadersWidth mode`. In a table (`mode="Table"`/`fit:"RowHeadersWidth"`), every field including measures must be `displayCategory:"Discrete"`. `build_viz_style` uses `fit:"Standard"` (chart mode), so chart vizzes are safe — but never mix a table fit with continuous fields.
-   - **Axis on a discrete field** → `INVALID_VISUALIZATION_METADATA: axis can have only continuous fields` (this one IS an API error, caught at POST). Use `raw_date_dim()` for raw dates on an axis.
-3. **Hand off honestly**: after creating vizzes, tell the user in plain words: "The API accepted these; it can't confirm they render. Open the dashboard — if any tile says *Can't show visualization*, tell me which one and I'll check the field/mode combo." This human open is the only real render confirmation available. Report it as a pending manual check, not as done.
-
----
-
 ## Hard fail validation rules (do not skip)
 
 1. **Aggregation compatibility**: for calculated measures, derive `function` from SDM `aggregationType` mapping. Do not force `function="Sum"` on `UserAgg`/aggregate calcs unless SDM metadata explicitly resolves to `Sum`.
-2. **First-viz gate**: after creating visualization #1, do the checkable checks above (created with `minorVersion=8`; not a table+continuous or axis+discrete combo) before creating #2. You cannot confirm render via API — do not claim you did.
+2. **First-viz render gate**: after creating the first visualization, validate it renders in dashboard context before creating additional visualizations.
 3. **Model lock**: abort if any payload uses an `sdmName` different from the selected model for this run.
 4. **Structured edits only**: never use regex/string replacement to mutate metadata XML or component source when structured payload/write operations are available.
 5. **Phase timing budget**: first visualization create+render must complete within 120s; each additional visualization must complete within 90s. If exceeded, stop and report a blocking timeout.
-6. **Retry cap — hard-enforced count, not a guideline**: a maximum of 2 total `create_visualization()` calls are allowed per visualization (1 original + 1 retry after a concrete, manifest-backed field/payload correction). Before every call beyond the first for the same visualization, print `RETRY 1/1 for <name>: <what changed and why>`. If the 2nd call also fails, print `VIOLATION: retry cap exceeded for <name>` and STOP — do not edit the payload a 3rd time. Report the failing response body to the user and ask how to proceed.
-7. **No giant orchestration scripts, no ad-hoc filenames**: do not generate large combined scripts for discovery+viz+dashboard in this step. Never write files named like `_build_*.py`, `_simple_*.py`, `_temp_*.py`, or similar ad-hoc/throwaway names — these are a sign the payload is being reconstructed from scratch instead of imported from `viz_helpers.py`.
-8. **Import, don't reconstruct**: `from viz_helpers import ...` and call the functions directly. Reading `ref-viz.md`/`ref-dashboard.md` prose and then retyping a similar-looking payload dict does not satisfy this rule — it is the exact failure mode `viz_helpers.py` exists to prevent.
-9. **No ad-hoc JSON**: never hand-construct a `visualSpecification`/`fields`/`style` dict by typing out its keys. If `create_visualization()` raises a validation error you can't resolve within the retry cap (#6), stop — do not start improvising missing keys one at a time against the API's error messages.
+6. **Retry cap**: only one retry is allowed per failed visualization POST after a concrete payload correction. Multiple exploratory retries are prohibited.
+7. **No giant orchestration scripts**: do not generate large combined scripts for discovery+viz+dashboard in this step; keep visualization logic stage-scoped and directly auditable.
+8. **Template-first requirement**: read this file and `ref-dashboard.md`, and reuse proven in-repo payload patterns before creating any new visualization payload.
+9. **No ad-hoc JSON**: do not hand-construct visualization payloads from scratch when a working template/example exists.
 10. **Sequential gate**: do not create visualization #2+ until visualization #1 passes POST success, `name` extraction, and render validation.
 11. **Failure contract**: on first blocking failure, print endpoint, payload fragment, response body, and exact next action, then stop.
 12. **UserAgg function lock**: if a calculated measure has SDM `aggregationType="UserAgg"`, do not apply a visualization-level function (`Avg`/`Sum`/etc.) on that field. Block the run if payload generation attempts a secondary aggregation.
 13. **Field-manifest lock**: before the first visualization POST, construct a single in-memory field manifest from the selected model (SDOs, dimensions, measurements, calculated fields, aggregation types) and resolve every viz field from that manifest only.
-14. **Unresolved-field hard fail**: if any viz field is unresolved in the manifest, stop immediately and print the unresolved field names; do not issue visualization POST with guessed replacements. A field name typed from memory of a "typical" naming pattern (e.g. guessing `Opportunities_clc` instead of confirming `Number_of_Opportunities_clc` in the manifest) is a guessed replacement, even if it's your first attempt.
+14. **Unresolved-field hard fail**: if any viz field is unresolved in the manifest, stop immediately and print the unresolved field names; do not issue visualization POST with guessed replacements.
 15. **No diagnostic side-scripts**: during normal execution, do not generate or run ad-hoc `_get_*` discovery scripts for field lookups; use one preflight manifest function/path.
-16. **Inline execution allowance**: under no-new-file constraints, run visualization/API operations inline (`python -c`, heredoc, or `curl`) that import from `viz_helpers.py`, instead of writing new helper files; this constraint does not permit blocking on execution, and it does not permit redefining `viz_helpers.py`'s functions inline instead of importing them.
+16. **Inline execution allowance**: under no-new-file constraints, run visualization/API operations inline (`python -c`, heredoc, or `curl`) instead of writing helper files; this constraint does not permit blocking on execution.
 17. **Chart intent immutability**: once a visualization intent is declared (goal + key fields + mark type), do not switch to a different fallback chart to pass API validation unless the user explicitly approves intent change.
-18. **Render check requirement**: for each visualization, run the checkable checks from the "Render validation" section (created with `minorVersion=8`; not a table+continuous or axis+discrete combo). The API cannot confirm the viz renders — never fabricate "render-validation evidence"; the only real confirmation is the user opening the dashboard, which you flag as a pending manual step.
+18. **Render proof requirement**: for each required visualization, capture explicit render-validation evidence in dashboard context before continuing to dashboard assembly.
 19. **Preflight declaration requirement**: before creating visualizations, print a standalone preflight declaration listing touched files/paths and confirming whether new files will be created.
-20. **Checklist execution requirement**: per visualization, print `payload fields`, execute one POST, print response/result; do not continue silently. Do not print "render validated" — the API cannot establish that (see rule 18).
+20. **Checklist execution requirement**: per visualization, print `payload fields`, execute one POST, print response/result, then print render-validation evidence; do not continue silently.
 21. **Violation abort requirement**: if any hard rule is broken, stop immediately and report the exact violated rule instead of attempting in-session recovery loops.

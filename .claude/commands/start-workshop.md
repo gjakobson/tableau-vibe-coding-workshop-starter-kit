@@ -294,9 +294,9 @@ Present a clean summary, then ask:
 **Visualization + dashboard execution lock (options 2/3/4/8)**
 
 For visualization/dashboard work, these are blocking requirements:
-1. Import lock: `from viz_helpers import ...` and `from dashboard_helpers import ...` (repo root) for every visualization/dashboard payload. These modules are the confirmed-working payload builders — every required key (`legends`, `marks.stack`, `style.fonts`, `workspaceIdOrApiName`, `widgets` as a dict, etc.) was only discovered by trial and error against the live API in a prior run. Reading `ref-viz.md`/`ref-dashboard.md` prose and reconstructing a similar-looking payload dict by hand does NOT satisfy this rule — it is the exact failure mode these modules exist to prevent. If a helper doesn't cover a case you need, edit `viz_helpers.py`/`dashboard_helpers.py` directly; never fork the payload logic inline.
-2. No ad-hoc filenames: never write files named like `_build_*.py`, `_simple_*.py`, `_temp_*.py`, or similar throwaway names for visualization/dashboard creation. Writing a new script with a name like this mid-run is itself a signal that rule #1 is being violated — stop and use the imported helpers instead.
-3. Create visualization #1 first and confirm the checkable signals before continuing: successful POST (with `minorVersion=8` — the helper does this), response contains `name`, and the payload avoids the two known render-crash combos (table-mode + continuous field; axis config on a discrete field). Note: the API CANNOT confirm the viz renders — "Can't show visualization" is a browser error invisible to the API. Do not claim a viz "renders"; the only real confirmation is the user opening the dashboard (see `ref-viz.md` → "Render validation").
+1. Template-first: read `Reference Files/ref-viz.md` and `Reference Files/ref-dashboard.md`, then locate at least one working in-repo example before creating payloads.
+2. Do not hand-construct visualization/dashboard JSON from scratch when a working template/example exists.
+3. Create visualization #1 first and validate all three checks before continuing: successful POST, response contains `name`, and renders in dashboard context.
 4. If visualization #1 fails any check, stop immediately. Do not create visualization #2+ until fixed.
 5. Visualization sequencing lock: visualization N+1 is forbidden until visualization N passes render gate.
 6. Dashboard creation lock: do not create/patch dashboard until all required visualizations pass render validation.
@@ -305,8 +305,6 @@ For visualization/dashboard work, these are blocking requirements:
 9. Failure contract: on first blocking error, print endpoint, payload fragment, response body, and exact next action, then stop.
 10. KPI row requirement: if the selected model has one or more available metrics, dashboard step must include a top KPI row (up to 4 metric tiles) before the visualization grid.
 11. KPI skip contract: if KPI tiles are omitted, print explicit reason in output (for example "no metrics available in model" or "metric IDs unresolved after fetch") before finalizing.
-12. Identifier-resolution uniqueness lock: whenever visualization, metric, or other asset IDs are resolved via a list/GET-by-name call for use in a dashboard payload, print each resolved `(name, id)` pair and verify every ID is unique across the distinct assets being referenced. If two distinct names resolve to the same ID, the lookup/filter is broken — stop immediately, print the exact endpoint and params used, and fix the lookup before building the dashboard payload. Never assume a list/GET endpoint supports a `name` filter unless that filter is shown in the reference file or example — check the response actually narrowed to one matching item.
-13. Field-name provenance lock: any `fieldName`/`apiName` value placed into a payload must be copy-pasted from a manifest or API response printed earlier in this same run — never typed from memory of typical naming patterns (e.g. guessing `Opportunities_clc` instead of the manifest's actual `Number_of_Opportunities_clc`). A guessed field name that happens to fail is itself a violation of rule #22, not an acceptable "first attempt."
 
 **Option 1 fast path (single calc field / metric request)**
 
@@ -317,7 +315,7 @@ If the user selects only option `1`, use a deterministic 5-step flow and avoid i
 4. Create metric with `aggregationType` consistent with the referenced calculated field semantics (do not force mismatched values like `Average` vs `UserAgg`).
 5. Use ASCII-only script output (`[OK]`, `[WARN]`, `[ERROR]`) for cross-platform terminal compatibility; do not emit Unicode symbols.
 
-Hard stop rule for option `1`: maximum one retry per failing API operation after a concrete fix. Before that retry, print `RETRY 1/1 for <operation>: <what changed and why>`. If it still fails, print `VIOLATION: retry cap exceeded for <operation>` and stop — ask the user with the exact API error instead of trying a third variant.
+Hard stop rule for option `1`: maximum one retry per failing API operation after a concrete fix. If still failing, stop and ask the user with the exact API error.
 
 **Fast Path mode (default for options 1,2,3,4 together)**
 
@@ -333,9 +331,9 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 9. Hard fail if a calculated measure uses incompatible aggregation semantics (for example forcing `function="Sum"` on `UserAgg`/aggregate calcs not mapped to `Sum` in SDM metadata).
 10. Hard fail if model/API identity changes mid-run (for example switching to a different `SDM apiName` than selected during discovery).
 11. Hard fail if any metadata/XML file is modified through regex replacement; use structured write operations only.
-12. Pre-empt render crashes on visualization #1 (and every viz) before POST: no table-mode + continuous-field combo, no axis config on a discrete field, and always created with `minorVersion=8`. The API cannot report a render failure, so this is prevention, not detection — see rule 26 and `ref-viz.md` → "Render validation".
+12. Hard fail if visualization #1 succeeds creation but fails to render in dashboard; do not proceed to additional visualizations or dashboard finalization.
 13. Time budget lock: complete each phase within these targets, then hard stop and surface a blocking error (do not continue silently): discovery/mapping <= 90s, visualization #1 create+render <= 120s, each additional visualization <= 90s, dashboard assembly <= 90s, optional LWC deploy+attach <= 180s.
-14. Retry cap lock: maximum one retry per failing API operation after a concrete fix. Before issuing that retry, print `RETRY 1/1 for <operation>: <what changed and why>` — if you're about to print a second RETRY line for the same operation, that is the violation itself; stop immediately, print `VIOLATION: retry cap exceeded for <operation>`, and ask the user instead of exploring additional branches.
+14. Retry cap lock: maximum one retry per failing API operation after a concrete fix. If the retry fails, stop and ask the user instead of exploring additional branches.
 15. Path lock: for visualizations and dashboard creation, prefer existing repository templates/scripts and direct API payloads; do not generate new large ad-hoc orchestration scripts (>160 lines) during a normal run.
 16. Capability probe lock: perform one lightweight capability check up front (for example submetric endpoint availability). If unsupported, skip that branch for the rest of the run.
 17. Prompt minimization lock: when user already provided option numbers and theme/chart intent, do not ask additional planning questions; proceed directly with execution.
@@ -347,9 +345,9 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 23. No diagnostic side-script lock: during normal execution do not create ad-hoc `_get_*`/inspection helper scripts to discover field names; use the single manifest preflight path instead.
 24. Inline-execution allowance lock: if execution is needed without writing files, run inline (`python -c`, `python - <<'PY' ... PY`, or `curl`). Do not treat "no new files" as a blocker to API execution.
 25. Chart intent immutability lock: once the run declares its visualization plan (chart purpose, primary fields, and mark types), do not swap to different chart intents to bypass failures. Any intent change requires explicit user confirmation.
-26. Dashboard gate lock: do not create or patch a dashboard until each required visualization passed its checkable checks (POSTed with `minorVersion=8`, no table+continuous or axis+discrete combo). The API cannot produce "render validation evidence" — do not wait for or fabricate it. After the dashboard is built, explicitly tell the user the render is unconfirmed and ask them to open it and report any "Can't show visualization" tile.
+26. Render-proof dashboard gate lock: do not create or patch a dashboard until each required visualization has explicit render validation evidence in dashboard context for the current run.
 27. Mandatory preflight message lock: before executing build steps, print a standalone preflight block listing files/paths to touch, execution mode (inline vs existing script), and `New files to create: none` when constrained.
-28. Structural checklist lock: for options 1-3, print and satisfy this exact checklist in order: `manifest built` -> `payload fields printed` -> `POST once (minorVersion=8)` -> `render-crash combos checked` -> `next viz or stop`. Do not print `render validated` — the API cannot establish it (rule 26).
+28. Structural checklist lock: for options 1-3, print and satisfy this exact checklist in order: `manifest built` -> `payload fields printed` -> `POST once` -> `render validated` -> `next viz or stop`.
 29. Violation abort lock: on first contract violation (for example creating an ad-hoc file, changing chart intent without approval, or retrying beyond cap), stop the session immediately and report violation; do not continue in the same run.
 
 **Hard guardrail for opportunity detail card requests**

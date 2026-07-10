@@ -47,7 +47,6 @@ Read this file at the start of every session — these are hard-won API constrai
 31. **`fields` is a dict, not array** — `{"F1": {...}, "F2": {...}}`.
 32. **`style.headers` must be omitted, not `{}`** — empty dict causes `JSON_PARSER_ERROR`.
 33. **`allHeaders.fields` is required for dimension fields on the rows shelf** — omitting causes `INVALID_VISUALIZATION_METADATA`.
-33b. **Axis fields must be continuous** — a field with an `axis_number()`/`axis_date()` entry must be `displayCategory: "Continuous"`, else `INVALID_VISUALIZATION_METADATA: axis can have only continuous fields`. For a raw date column on a trend axis use `raw_date_dim()` (continuous), NOT `raw_dim()` (discrete). For a calc date dim use `calc_dim(..., is_date=True)`.
 34. **`mode` must be `"Visualization"` for charts** — not `"Normal"`, not `"Table"`.
 35. **Sorting bar charts by measure is not supported via API** — `sortOrders` only works when `mode="Table"`.
 36. **`"UserAgg"` causes `ROW_LEVEL_CALC_AGG_VALIDATION_ERROR`** for row-level calcs — use `"Sum"` or `"Avg"`.
