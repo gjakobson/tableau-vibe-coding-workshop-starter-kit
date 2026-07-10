@@ -53,6 +53,8 @@ Read this file at the start of every session — these are hard-won API constrai
 55. **Visualization POST response key is `name`, not `apiName`** — use `viz_result.get("apiName") or viz_result.get("name")`.
 56. **Mark `size` and `isAutomaticSize` belong in `style.marks.ALL`, not in `visualSpecification.marks.ALL`** — Percentage range is 2–200 (minimum is 2, not 0 or 1). `isAutomaticSize` must be present alongside `size`.
 62. **`sortOrders` in `visualSpecification` causes `JSON_PARSER_ERROR`** — belongs in `view.viewSpecification`.
+72. **Cloned visualization payloads may include non-writable metadata (`permissions`, `sourceVersion`)** — strip these fields (and other unknown top-level keys) before POST.
+73. **Use an allow-list for cloned visualization POST payloads** — keep only `name`, `label`, `description`, `dataSource`, `workspace`, `fields`, `interactions`, `view`, `visualSpecification`.
 
 ## Viz Actions (STEP M2)
 
@@ -78,6 +80,7 @@ Read this file at the start of every session — these are hard-won API constrai
 59. **Dashboard PATCH field-stripping rules** — strip `id`, `status`, `label` from widget top-level; strip `label` and `type` from each widget's `source`. Full payload required: `label`, `name`, `description`, `workspaceIdOrApiName`, `style`, `widgets`, `layouts`.
 60. **Extension widget `source` field causes 403 on PATCH** — omit `source` entirely from extension widgets.
 61. **Dashboard POST also rejects `source.type`** — strip `label` and `type` from every widget's `source` on POST too.
+74. **KPI metric widgets must use metric `apiName` exactly** — do not derive `source.name` from label strings (e.g., `Total Sales` != `Total_Sales`).
 
 ## Data Ingestion
 

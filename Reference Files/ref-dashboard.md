@@ -11,6 +11,7 @@ KPI metric tiles:
 - Prefer existing model metrics first; only create new metrics for explicit user requests or clear theme coverage gaps.
 - For sales pipeline dashboards, prefer: Total Sales, Win Rate, # of Opportunities, Weighted Pipeline Value, Open Opportunities.
 - Distribute KPI tiles evenly across columns 2-71.
+- Always resolve KPI widget source names from metric `apiName` values returned by `GET /ssot/semantic/models/{name}/metrics` (never from label text transforms).
 
 Default layout pattern:
 - Row 0-2: title
@@ -34,9 +35,10 @@ Do not ship a dashboard with only one KPI tile unless the user explicitly reques
 
 Before assembling visualization widgets:
 1. Fetch metric IDs for the selected model.
-2. If metrics exist, include a top KPI row with up to 4 metric tiles.
-3. Only skip KPI row when no metrics are available or metric IDs cannot be resolved.
-4. If skipped, print an explicit skip reason before marking dashboard complete.
+2. Build `metric_by_label = {label: {id, apiName}}` from the metrics response and use it as the single source of truth for KPI widgets.
+3. If metrics exist, include a top KPI row with up to 4 metric tiles.
+4. Only skip KPI row when no metrics are available or metric IDs cannot be resolved.
+5. If skipped, print an explicit skip reason before marking dashboard complete.
 
 ```python
 import uuid
@@ -166,10 +168,10 @@ page_cells.append(dash_pos("filter_date", 2, 2, 20, 2))
 
 # Metric tiles
 metrics_to_show = [
-    ("metric_1", "total_pipeline_value_md", metric_ids["Total Pipeline Value"]),
-    ("metric_2", "win_rate_md",             metric_ids["Win Rate"]),
-    ("metric_3", "average_deal_size_md",    metric_ids["Average Deal Size"]),
-    ("metric_4", "quota_attainment_md",     metric_ids["Quota Attainment"]),
+    ("metric_1", metric_by_label["Total Pipeline Value"]["apiName"], metric_by_label["Total Pipeline Value"]["id"]),
+    ("metric_2", metric_by_label["Win Rate"]["apiName"],             metric_by_label["Win Rate"]["id"]),
+    ("metric_3", metric_by_label["Average Deal Size"]["apiName"],    metric_by_label["Average Deal Size"]["id"]),
+    ("metric_4", metric_by_label["Quota Attainment"]["apiName"],     metric_by_label["Quota Attainment"]["id"]),
 ]
 n = len(metrics_to_show)
 metric_cols = 70 // n

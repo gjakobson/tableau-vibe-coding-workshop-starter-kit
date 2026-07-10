@@ -323,10 +323,11 @@ When the selected theme is **Sales pipeline** and the user asks for visualizatio
 5. Build the final dashboard using these cloned names as the primary visualization widgets.
 6. Keep KPI row behavior unchanged (4 KPI tiles preferred for Sales pipeline): Total Sales, Win Rate, # of Opportunities, Weighted Pipeline Value.
 7. Before cloning, delete any existing `{user_slug}_pipeline_trend_v2` and `{user_slug}_pipeline_by_stage_v2` visualizations in the target workspace so reruns are deterministic and do not accumulate stale artifacts.
-8. Clone hygiene lock: before POSTing a cloned visualization, recursively strip read-only fields from the source payload (`id`, `status`, `isOriginal`, `createdDate`, `createdBy`, `lastModifiedDate`, `lastModifiedBy`, `url`).
+8. Clone hygiene lock: before POSTing a cloned visualization, recursively strip read-only fields from the source payload (`id`, `status`, `isOriginal`, `createdDate`, `createdBy`, `lastModifiedDate`, `lastModifiedBy`, `url`, `permissions`, `sourceVersion`).
 9. Source-structure lock: for cloned charts, keep `fields`, `view`, and `visualSpecification` exactly from the source except identity fields; do not rebuild style/marks manually.
 10. Dashboard rewire lock: when rerunning in an existing workspace, patch dashboard widget sources (`viz_1`, `viz_2`) to the newly cloned visualization IDs/names in the same run.
 11. Render evidence lock: for each cloned chart, create a temporary one-viz dashboard and require HTTP 201 before proceeding; delete the temp dashboard after validation.
+12. Clone payload allow-list lock: build cloned visualization POST payloads from an allow-list of top-level keys only (`name`, `label`, `description`, `dataSource`, `workspace`, `fields`, `interactions`, `view`, `visualSpecification`). Do not forward unknown top-level keys from GET payloads.
 
 If either source visualization is missing in the org:
 - Stop and tell the user exactly which source is missing.
@@ -376,6 +377,7 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 27. Mandatory preflight message lock: before executing build steps, print a standalone preflight block listing files/paths to touch, execution mode (inline vs existing script), and `New files to create: none` when constrained.
 28. Structural checklist lock: for options 1-3, print and satisfy this exact checklist in order: `manifest built` -> `payload fields printed` -> `POST once` -> `render validated` -> `next viz or stop`.
 29. Violation abort lock: on first contract violation (for example creating an ad-hoc file, changing chart intent without approval, or retrying beyond cap), stop the session immediately and report violation; do not continue in the same run.
+30. KPI source lock: metric widgets must use metric `apiName` from `GET /ssot/semantic/models/{name}/metrics`. Never derive KPI `source.name` from label text transforms.
 
 **Hard guardrail for opportunity detail card requests**
 
@@ -424,7 +426,8 @@ If options include dashboard creation (2, 3, or 8), select KPI tiles before visu
 4. For **Customer success** theme, prefer existing NPS/CSAT/churn/retention metrics.
 5. For **Finance** theme, prefer existing revenue/cost/margin/growth metrics.
 6. Print selected KPI list in output (`Selected KPI tiles: [...]`).
-7. Create new metrics only if user explicitly requested one not present, or if existing metrics do not adequately cover the selected theme.
+7. Build and persist a KPI source map from metric label -> (`apiName`, `id`) and use that map when creating dashboard metric widgets.
+8. Create new metrics only if user explicitly requested one not present, or if existing metrics do not adequately cover the selected theme.
 
 Dashboard layout requirement:
 - Row 0-2: title
