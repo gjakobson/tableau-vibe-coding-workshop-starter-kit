@@ -294,8 +294,8 @@ Present a clean summary, then ask:
 **Visualization + dashboard execution lock (options 2/3/4/8)**
 
 For visualization/dashboard work, these are blocking requirements:
-1. Template-first: read `Reference Files/ref-viz.md` and `Reference Files/ref-dashboard.md`, then locate at least one working in-repo example before creating payloads.
-2. Do not hand-construct visualization/dashboard JSON from scratch when a working template/example exists.
+1. Template-copy lock: use the Read tool to open an actual working example file (for example one under `Reference Files/Dashboard Examples/*.json`, or a visualization payload that was successfully POSTed earlier in this run) and base the new payload directly on its literal keys and structure. Reading the prose in `ref-viz.md`/`ref-dashboard.md` is not a substitute — those explain concepts, the JSON example files are the source of truth for exact field names (e.g. `workspaceIdOrApiName`, not `workspace`).
+2. Do not hand-construct visualization/dashboard JSON from memory of the reference markdown when a working template/example file exists on disk.
 3. Create visualization #1 first and validate all three checks before continuing: successful POST, response contains `name`, and renders in dashboard context.
 4. If visualization #1 fails any check, stop immediately. Do not create visualization #2+ until fixed.
 5. Visualization sequencing lock: visualization N+1 is forbidden until visualization N passes render gate.
@@ -305,6 +305,8 @@ For visualization/dashboard work, these are blocking requirements:
 9. Failure contract: on first blocking error, print endpoint, payload fragment, response body, and exact next action, then stop.
 10. KPI row requirement: if the selected model has one or more available metrics, dashboard step must include a top KPI row (up to 4 metric tiles) before the visualization grid.
 11. KPI skip contract: if KPI tiles are omitted, print explicit reason in output (for example "no metrics available in model" or "metric IDs unresolved after fetch") before finalizing.
+12. Identifier-resolution uniqueness lock: whenever visualization, metric, or other asset IDs are resolved via a list/GET-by-name call for use in a dashboard payload, print each resolved `(name, id)` pair and verify every ID is unique across the distinct assets being referenced. If two distinct names resolve to the same ID, the lookup/filter is broken — stop immediately, print the exact endpoint and params used, and fix the lookup before building the dashboard payload. Never assume a list/GET endpoint supports a `name` filter unless that filter is shown in the reference file or example — check the response actually narrowed to one matching item.
+13. Field-name provenance lock: any `fieldName`/`apiName` value placed into a payload must be copy-pasted from a manifest or API response printed earlier in this same run — never typed from memory of typical naming patterns (e.g. guessing `Opportunities_clc` instead of the manifest's actual `Number_of_Opportunities_clc`). A guessed field name that happens to fail is itself a violation of rule #22, not an acceptable "first attempt."
 
 **Option 1 fast path (single calc field / metric request)**
 
