@@ -58,6 +58,13 @@ _read_*.py
 _test_*.py
 _verify_*.py
 
+# Exceptions: canonical, secret-free helper scripts are TRACKED so the skill runs
+# a known-good version instead of regenerating them each run (they auth via the
+# `sf` CLI at runtime — no credentials are stored in these files).
+!_check_auth.py
+!_list_models.py
+!_inspect_model.py
+
 # SFDX / SF CLI generated dirs
 .sf/
 .sfdx/

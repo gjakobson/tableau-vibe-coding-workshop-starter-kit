@@ -230,7 +230,7 @@ Tell the user: "Found your workspace **[USER_NAME]**" (if found) or "Created you
 
 ### 2d-a — List existing semantic models
 
-Write and run `_list_models.py`:
+**Run the existing `_list_models.py`** (`python3 _list_models.py`) — it is tracked in the repo and CLI-version-robust. Do not rewrite it; only write it (from the code below) if missing.
 
 ```python
 import json, requests, warnings
@@ -257,7 +257,7 @@ Present as a numbered list. Ask: "Which one would you like to work with?"
 
 ### 2d-b — Inspect the selected model
 
-Write and run `_inspect_model.py` (substitute real `model_api_name`):
+**Run the existing `_inspect_model.py`** (`python3 _inspect_model.py <model_api_name>`) — tracked and CLI-robust; it takes the chosen model apiName as an argument. Do not rewrite it; only write it (from the code below) if missing. The snippet below shows the equivalent inspection logic:
 
 ```python
 r = requests.get(BASE_SEM + "/ssot/semantic/models/" + model_api_name,
