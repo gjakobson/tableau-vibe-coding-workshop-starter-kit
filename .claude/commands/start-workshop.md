@@ -344,6 +344,8 @@ If the user selects multiple build options at once (especially `1,2,3,4`), execu
 22. Unresolved-field hard fail: if any visualization field is not found in the manifest, stop immediately and report the missing field; do not attempt API POST with guessed/edited field names.
 23. No diagnostic side-script lock: during normal execution do not create ad-hoc `_get_*`/inspection helper scripts to discover field names; use the single manifest preflight path instead.
 24. Inline-execution allowance lock: if execution is needed without writing files, run inline (`python -c`, `python - <<'PY' ... PY`, or `curl`). Do not treat "no new files" as a blocker to API execution.
+25. Chart intent immutability lock: once the run declares its visualization plan (chart purpose, primary fields, and mark types), do not swap to different chart intents to bypass failures. Any intent change requires explicit user confirmation.
+26. Render-proof dashboard gate lock: do not create or patch a dashboard until each required visualization has explicit render validation evidence in dashboard context for the current run.
 
 **Hard guardrail for opportunity detail card requests**
 
