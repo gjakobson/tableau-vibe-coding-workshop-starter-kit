@@ -78,10 +78,23 @@ viz_name = result.get("apiName") or result.get("name")
 
 ---
 
+## "Render validation" — what it actually means (READ THIS)
+
+The API **cannot** tell you whether a visualization renders. "Can't show visualization" is a *browser* render error, thrown when the dashboard opens — the API accepts the payload and returns 200 (see `troubleshooting.md`: "The API accepts the payload, but the viz breaks when opened"). So a POST returning `name`/`id` is NOT render proof, and no rule below is satisfied by "the POST succeeded."
+
+Do not self-certify "rendered." What you CAN do, and must:
+1. **Create with `minorVersion=8`** — the `create_visualization()` helper does this. A viz created on a different minor version than the renderer (8) is a top cause of "Can't show visualization." Never POST a tableau endpoint without it.
+2. **Pre-empt the two known render crashes** before POST:
+   - **Continuous field in a Table viz** → `AnalyticsError: Axes are not supported in RowHeadersWidth mode`. In a table (`mode="Table"`/`fit:"RowHeadersWidth"`), every field including measures must be `displayCategory:"Discrete"`. `build_viz_style` uses `fit:"Standard"` (chart mode), so chart vizzes are safe — but never mix a table fit with continuous fields.
+   - **Axis on a discrete field** → `INVALID_VISUALIZATION_METADATA: axis can have only continuous fields` (this one IS an API error, caught at POST). Use `raw_date_dim()` for raw dates on an axis.
+3. **Hand off honestly**: after creating vizzes, tell the user in plain words: "The API accepted these; it can't confirm they render. Open the dashboard — if any tile says *Can't show visualization*, tell me which one and I'll check the field/mode combo." This human open is the only real render confirmation available. Report it as a pending manual check, not as done.
+
+---
+
 ## Hard fail validation rules (do not skip)
 
 1. **Aggregation compatibility**: for calculated measures, derive `function` from SDM `aggregationType` mapping. Do not force `function="Sum"` on `UserAgg`/aggregate calcs unless SDM metadata explicitly resolves to `Sum`.
-2. **First-viz render gate**: after creating the first visualization, validate it renders in dashboard context before creating additional visualizations.
+2. **First-viz gate**: after creating visualization #1, do the checkable checks above (created with `minorVersion=8`; not a table+continuous or axis+discrete combo) before creating #2. You cannot confirm render via API — do not claim you did.
 3. **Model lock**: abort if any payload uses an `sdmName` different from the selected model for this run.
 4. **Structured edits only**: never use regex/string replacement to mutate metadata XML or component source when structured payload/write operations are available.
 5. **Phase timing budget**: first visualization create+render must complete within 120s; each additional visualization must complete within 90s. If exceeded, stop and report a blocking timeout.
@@ -97,7 +110,7 @@ viz_name = result.get("apiName") or result.get("name")
 15. **No diagnostic side-scripts**: during normal execution, do not generate or run ad-hoc `_get_*` discovery scripts for field lookups; use one preflight manifest function/path.
 16. **Inline execution allowance**: under no-new-file constraints, run visualization/API operations inline (`python -c`, heredoc, or `curl`) that import from `viz_helpers.py`, instead of writing new helper files; this constraint does not permit blocking on execution, and it does not permit redefining `viz_helpers.py`'s functions inline instead of importing them.
 17. **Chart intent immutability**: once a visualization intent is declared (goal + key fields + mark type), do not switch to a different fallback chart to pass API validation unless the user explicitly approves intent change.
-18. **Render proof requirement**: for each required visualization, capture explicit render-validation evidence in dashboard context before continuing to dashboard assembly.
+18. **Render check requirement**: for each visualization, run the checkable checks from the "Render validation" section (created with `minorVersion=8`; not a table+continuous or axis+discrete combo). The API cannot confirm the viz renders — never fabricate "render-validation evidence"; the only real confirmation is the user opening the dashboard, which you flag as a pending manual step.
 19. **Preflight declaration requirement**: before creating visualizations, print a standalone preflight declaration listing touched files/paths and confirming whether new files will be created.
-20. **Checklist execution requirement**: per visualization, print `payload fields`, execute one POST, print response/result, then print render-validation evidence; do not continue silently.
+20. **Checklist execution requirement**: per visualization, print `payload fields`, execute one POST, print response/result; do not continue silently. Do not print "render validated" — the API cannot establish that (see rule 18).
 21. **Violation abort requirement**: if any hard rule is broken, stop immediately and report the exact violated rule instead of attempting in-session recovery loops.

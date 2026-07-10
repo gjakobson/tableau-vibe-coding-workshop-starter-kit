@@ -139,7 +139,9 @@ def create_dashboard(sf_hdrs, base_viz, label, name, description, workspace_name
         }],
         # DO NOT include "customViews" — causes JSON_PARSER_ERROR
     }
-    resp = requests.post(f"{base_viz}/tableau/dashboards", headers=sf_hdrs, json=dash_payload)
+    # minorVersion=8 REQUIRED on tableau endpoints — see Reference Files/api-reference.md
+    resp = requests.post(f"{base_viz}/tableau/dashboards", headers=sf_hdrs,
+                        params={"minorVersion": 8}, json=dash_payload)
     if resp.ok:
         result = resp.json()
         print(f"  [OK] Dashboard: {name}  id={result.get('id')}")
@@ -162,12 +164,14 @@ def patch_dashboard(sf_hdrs, base_viz, dashboard_name, widgets_dict, page_cells)
     metadata that the API requires on PATCH but that callers shouldn't have to
     re-supply. Returns the parsed JSON response, or None on failure.
     """
-    r = requests.get(f"{base_viz}/tableau/dashboards/{dashboard_name}", headers=sf_hdrs)
+    r = requests.get(f"{base_viz}/tableau/dashboards/{dashboard_name}", headers=sf_hdrs,
+                    params={"minorVersion": 8})
     if not r.ok:
         print(f"  [ERROR] Fetch '{dashboard_name}': {r.status_code} {r.text[:400]}")
         return None
     dash = r.json()
     resp = requests.patch(f"{base_viz}/tableau/dashboards/{dashboard_name}", headers=sf_hdrs,
+        params={"minorVersion": 8},
         json={
             "label": dash["label"],                            # required — omitting causes 500
             "name": dash["name"],

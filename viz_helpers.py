@@ -160,7 +160,11 @@ def create_visualization(sf_hdrs, base_viz, label, name, sdm_name, workspace_nam
             "referenceLines": {}, "rows": rows, "style": style or {},
         },
     }
-    resp = requests.post(f"{base_viz}/tableau/visualizations", headers=sf_hdrs, json=payload)
+    # minorVersion=8 is REQUIRED on tableau endpoints — a viz created without it can
+    # POST 200 but fail to render ("Can't show visualization") because the dashboard
+    # renderer runs on minorVersion 8. See Reference Files/api-reference.md.
+    resp = requests.post(f"{base_viz}/tableau/visualizations", headers=sf_hdrs,
+                         params={"minorVersion": 8}, json=payload)
     if resp.ok:
         result = resp.json()
         print(f"  [OK] Visualization: {label}  id={result.get('id')}")
