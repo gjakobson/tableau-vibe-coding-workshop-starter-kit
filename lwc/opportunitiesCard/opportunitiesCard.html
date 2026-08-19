@@ -1,0 +1,158 @@
+<template>
+    <template lwc:if={isEmpty}>
+        <div class="card dark-card">
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 17V7l6 5-6 5z"/>
+                        <circle cx="12" cy="12" r="10"/>
+                    </svg>
+                </div>
+                <p class="empty-title">No Opportunities</p>
+                <p class="empty-sub">No data returned from your dashboard filters.</p>
+            </div>
+        </div>
+    </template>
+
+    <template lwc:if={isLoading}>
+        <div class="card dark-card">
+            <div class="empty-state">
+                <div class="spinner"></div>
+                <p class="empty-title">Loading Pipeline...</p>
+            </div>
+        </div>
+    </template>
+
+    <template lwc:if={hasError}>
+        <div class="card dark-card">
+            <div class="empty-state">
+                <p class="empty-title error-text">Error Loading Pipeline</p>
+                <p class="empty-sub">{errorMessage}</p>
+            </div>
+        </div>
+    </template>
+
+    <template lwc:if={isReady}>
+        <div class="card dark-card">
+            <!-- Header -->
+            <div class="card-header">
+                <div class="title-block">
+                    <h2 class="card-title">Opportunities Pipeline</h2>
+                    <span class="record-count">{totalCount} records</span>
+                </div>
+                <div class="header-controls">
+                    <div class="filter-wrap">
+                        <label class="filter-label">Stage</label>
+                        <select class="filter-select" value={selectedStage} onchange={handleStageFilter}>
+                            <template for:each={stageOptions} for:item="opt">
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="filter-wrap">
+                        <label class="filter-label">Sort By</label>
+                        <select class="filter-select" value={sortField} onchange={handleSortChange}>
+                            <option value="name">Name</option>
+                            <option value="amount">Amount</option>
+                            <option value="probability">Probability</option>
+                            <option value="closeDate">Close Date</option>
+                        </select>
+                    </div>
+                    <button class="sort-dir-btn" onclick={handleSortDirToggle} title="Toggle sort direction">
+                        <template lwc:if={isSortAsc}>↑</template>
+                        <template lwc:else>↓</template>
+                    </button>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- KPI tiles -->
+            <div class="kpi-row">
+                <div class="kpi-tile">
+                    <span class="kpi-label">Total Pipeline</span>
+                    <span class="kpi-value accent-blue">{totalPipelineDisplay}</span>
+                </div>
+                <div class="kpi-tile">
+                    <span class="kpi-label">Weighted Pipeline</span>
+                    <span class="kpi-value accent-green">{weightedPipelineDisplay}</span>
+                </div>
+                <div class="kpi-tile">
+                    <span class="kpi-label">Avg Probability</span>
+                    <span class="kpi-value accent-purple">{avgProbabilityDisplay}</span>
+                </div>
+                <div class="kpi-tile">
+                    <span class="kpi-label">Closing ≤30 Days</span>
+                    <span class="kpi-value accent-orange">{closingSoonCount}</span>
+                </div>
+            </div>
+
+            <!-- Stage distribution bar -->
+            <div class="stage-bar-wrap">
+                <template for:each={stageDistribution} for:item="seg">
+                    <div
+                        key={seg.stage}
+                        class={seg.barClass}
+                        style={seg.barStyle}
+                        title={seg.tooltip}
+                    ></div>
+                </template>
+            </div>
+            <div class="stage-legend">
+                <template for:each={stageDistribution} for:item="seg">
+                    <div key={seg.stage} class="legend-item">
+                        <span class={seg.dotClass}></span>
+                        <span class="legend-label">{seg.stage}</span>
+                        <span class="legend-pct">{seg.pct}%</span>
+                    </div>
+                </template>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Table -->
+            <div class="table-wrap">
+                <table class="opp-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Stage</th>
+                            <th>Amount</th>
+                            <th>Probability</th>
+                            <th>Close Date</th>
+                            <th>Owner</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={visibleRows} for:item="row">
+                            <tr key={row.key} class={row.rowClass}>
+                                <td class="cell-name">{row.name}</td>
+                                <td><span class={row.stageBadgeClass}>{row.stage}</span></td>
+                                <td class="cell-num">{row.amountDisplay}</td>
+                                <td>
+                                    <div class="prob-cell">
+                                        <div class="prob-bar-track">
+                                            <div class={row.probBarClass} style={row.probBarStyle}></div>
+                                        </div>
+                                        <span class="prob-label">{row.probabilityDisplay}</span>
+                                    </div>
+                                </td>
+                                <td class={row.closeDateClass}>{row.closeDateDisplay}</td>
+                                <td class="cell-owner">{row.owner}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Show more -->
+            <template lwc:if={hasMore}>
+                <div class="show-more-wrap">
+                    <button class="show-more-btn" onclick={handleShowMore}>
+                        Show more ({remainingCount} remaining)
+                    </button>
+                </div>
+            </template>
+        </div>
+    </template>
+</template>
